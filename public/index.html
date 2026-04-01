@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReturnHub v4 · Paragonfitwear</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0A0C0F;--bg2:#111318;--bg3:#181C24;--bg4:#1F2433;--bg5:#252C3E;
+  --b:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.13);--b3:rgba(255,255,255,0.22);
+  --tx:#EEF0F8;--tx2:#8891AD;--tx3:#4A5270;
+  --Y:#E8FF47;--Yd:#2A3010;--Y2:#C8DC30;
+  --G:#22D46A;--Gd:#0F6B33;
+  --A:#F5A623;--Ad:#7A4F0A;
+  --R:#F04545;--Rd:#4a0f0f;
+  --B:#4F8EF7;--Bd:#1A3880;
+  --P:#9B6FF7;--T:#14D4C0;
+  --fd:'Syne',sans-serif;--fb:'Inter',sans-serif;--fm:'IBM Plex Mono',monospace;
+  --sw:228px;--r:8px;--rl:14px;--rxl:20px;
+}
+body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh;display:flex;overflow:hidden}
+
+/* SIDEBAR */
+.sb{width:var(--sw);background:var(--bg2);border-right:1px solid var(--b);display:flex;flex-direction:column;flex-shrink:0;height:100vh;overflow-y:auto}
+.sb-brand{padding:16px 14px 12px;border-bottom:1px solid var(--b)}
+.sb-logo{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.lmark{width:30px;height:30px;background:var(--Y);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ltxt{font-family:var(--fd);font-weight:800;font-size:14px;letter-spacing:-.3px}.ltxt span{color:var(--Y)}
+.cpill{font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;font-family:var(--fm)}
+.sb-nav{padding:7px;flex:1}
+.nsl{font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;padding:9px 8px 5px;font-family:var(--fm)}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:var(--r);font-size:13px;font-weight:500;color:var(--tx2);cursor:pointer;transition:all .12s;border:none;background:none;width:100%;text-align:left;font-family:var(--fb);margin-bottom:1px}
+.ni:hover{background:var(--bg3);color:var(--tx)}.ni.active{background:var(--Yd);color:var(--Y)}
+.ni .ic{width:16px;text-align:center;font-size:13px;flex-shrink:0}
+.ni .nbc{margin-left:auto;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:var(--fm)}
+.ni .nbc.r{background:var(--Rd);color:var(--R)}.ni .nbc.a{background:var(--Ad);color:var(--A)}
+.sb-u{padding:11px;border-top:1px solid var(--b)}
+.ur{display:flex;align-items:center;gap:9px;cursor:pointer;padding:7px;border-radius:var(--r);transition:background .12s}
+.ur:hover{background:var(--bg3)}
+.uav{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0}
+.msel{margin:8px 8px 0;background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-size:12px;padding:7px 9px;font-family:var(--fb);outline:none;width:calc(100% - 16px);cursor:pointer}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--b);padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.tb-l{display:flex;align-items:center;gap:10px}
+.pt{font-family:var(--fd);font-weight:700;font-size:15px}
+.mbadge{background:var(--Bd);color:var(--B);font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;font-family:var(--fm)}
+.tstat{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2);background:var(--bg3);padding:4px 9px;border-radius:20px;border:1px solid var(--b)}
+.sdot{width:6px;height:6px;border-radius:50%}
+.sdot.g{background:var(--G);box-shadow:0 0 4px var(--G);animation:bl 2s infinite}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.4}}
+.clk{font-family:var(--fm);font-size:11px;color:var(--tx3);background:var(--bg3);padding:4px 9px;border-radius:6px;border:1px solid var(--b)}
+.pc{flex:1;overflow-y:auto;padding:18px 22px}
+.sec{display:none}.sec.active{display:block}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);overflow:hidden}
+.ch{padding:12px 16px;border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between}
+.ctitle{font-family:var(--fd);font-weight:700;font-size:14px;display:flex;align-items:center;gap:7px}
+.cbody{padding:15px 17px}
+
+/* STATS */
+.srow{display:grid;gap:10px;margin-bottom:16px}
+.s5{grid-template-columns:repeat(5,1fr)}.s4{grid-template-columns:repeat(4,1fr)}.s3{grid-template-columns:repeat(3,1fr)}
+.sc{background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);padding:13px 15px;position:relative;overflow:hidden}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.sc.g::before{background:var(--G)}.sc.a::before{background:var(--A)}.sc.r::before{background:var(--R)}.sc.b::before{background:var(--B)}.sc.y::before{background:var(--Y)}.sc.p::before{background:var(--P)}
+.sl{font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;font-family:var(--fm);margin-bottom:4px}
+.sv{font-family:var(--fd);font-size:24px;font-weight:800;line-height:1;margin-bottom:2px}
+.subs{font-size:11px;color:var(--tx2)}
+.cg{color:var(--G)}.ca{color:var(--A)}.cr{color:var(--R)}.cb{color:var(--B)}.cy{color:var(--Y)}.cp{color:var(--P)}.ct{color:var(--T)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;font-family:var(--fm)}
+.bg{background:rgba(34,212,106,.14);color:var(--G)}.ba{background:rgba(245,166,35,.14);color:var(--A)}
+.br{background:rgba(240,69,69,.14);color:var(--R)}.bb{background:rgba(79,142,247,.14);color:var(--B)}
+.by{background:var(--Yd);color:var(--Y)}.bp{background:rgba(155,111,247,.14);color:var(--P)}
+.bt2{background:rgba(20,212,192,.14);color:var(--T)}.bgr{background:var(--bg4);color:var(--tx2)}
+
+/* BUTTONS */
+.btn{padding:8px 15px;border-radius:var(--r);font-size:13px;font-weight:600;border:none;cursor:pointer;font-family:var(--fb);display:inline-flex;align-items:center;gap:6px;transition:all .14s;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.bY{background:var(--Y);color:#0A0C0F}.bY:hover{background:var(--Y2)}
+.bG{background:var(--Gd);color:white;border:1px solid rgba(34,212,106,.3)}.bG:hover{background:#0d5829}
+.bs{background:var(--bg3);color:var(--tx);border:1px solid var(--b2)}.bs:hover{background:var(--bg4)}
+.bR{background:var(--Rd);color:var(--R);border:1px solid rgba(240,69,69,.3)}.bR:hover{background:#350a0a}
+.bA{background:rgba(245,166,35,.15);color:var(--A);border:1px solid rgba(245,166,35,.3)}.bA:hover{background:rgba(245,166,35,.25)}
+.bB{background:var(--Bd);color:white;border:1px solid rgba(79,142,247,.3)}
+.sm{padding:6px 11px;font-size:11px}.lg{padding:12px 22px;font-size:15px;border-radius:var(--rl)}
+
+/* TABLES */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:8px 10px;font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--b);font-family:var(--fm);white-space:nowrap}
+.tbl td{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.mono{font-family:var(--fm);font-size:11px;color:var(--tx2)}
+
+/* FORMS */
+.fi{width:100%;background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-size:13px;padding:8px 10px;font-family:var(--fb);outline:none;transition:border-color .15s}
+.fi:focus{border-color:var(--Y)}.fi::placeholder{color:var(--tx3)}
+.fta{width:100%;background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-size:13px;padding:8px 10px;font-family:var(--fb);outline:none;resize:vertical;min-height:68px;transition:border-color .15s;line-height:1.5}
+.fta:focus{border-color:var(--Y)}.fta::placeholder{color:var(--tx3)}
+.fl{display:block;font-size:11px;font-weight:600;color:var(--tx2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm)}
+.fg{margin-bottom:12px}
+.fsel{width:100%;background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-size:13px;padding:8px 10px;font-family:var(--fb);outline:none;cursor:pointer}
+.fsel:focus{border-color:var(--Y)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* LOGIN */
+#ls{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999}
+.lbox{background:var(--bg2);border:1px solid var(--b2);border-radius:var(--rxl);padding:36px;width:420px;text-align:center}
+.ll{width:50px;height:50px;background:var(--Y);border-radius:13px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.ucards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px}
+.uc{background:var(--bg3);border:1px solid var(--b);border-radius:var(--rl);padding:12px 8px;cursor:pointer;transition:all .15s;text-align:center}
+.uc:hover{border-color:var(--Y);background:var(--Yd)}
+.ucav{width:38px;height:38px;border-radius:50%;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.pin-in{width:100%;background:var(--bg3);border:2px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:var(--fm);font-size:20px;padding:10px;text-align:center;letter-spacing:8px;outline:none;transition:border-color .15s;margin-bottom:10px}
+.pin-in:focus{border-color:var(--Y)}
+
+/* SCAN ZONE */
+.sz{background:var(--bg3);border:2px dashed var(--b2);border-radius:var(--rxl);padding:22px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:14px}
+.sz:hover{border-color:var(--Y);background:rgba(232,255,71,.03)}
+.sz.found{border-color:var(--G);background:rgba(34,212,106,.04);border-style:solid}
+.sz.err{border-color:var(--R);border-style:solid;animation:sh .3s ease}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.bc-in{width:100%;background:var(--bg4);border:2px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:var(--fm);font-size:14px;padding:10px 14px;text-align:center;letter-spacing:2px;outline:none;transition:border-color .15s;margin-top:11px}
+.bc-in:focus{border-color:var(--Y)}.bc-in::placeholder{color:var(--tx3);letter-spacing:1px;font-size:12px}
+
+/* RETURN PANEL */
+.rp{background:var(--bg3);border:1px solid var(--b2);border-radius:var(--rxl);padding:16px;display:none;animation:fu .25s ease}
+.rp.vis{display:block}
+@keyframes fu{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.dg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.dfl{font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;font-family:var(--fm);margin-bottom:3px}
+.dfv{font-size:13px;font-weight:600}.dfv.m{font-family:var(--fm);font-size:11px;color:var(--tx2)}
+
+/* PHOTO */
+.pbox{background:var(--bg4);border:1px solid var(--b2);border-radius:var(--rl);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;cursor:pointer;transition:border-color .15s;height:130px}
+.pbox:hover{border-color:var(--Y)}
+.pbox img{width:100%;height:100%;object-fit:cover;display:none}
+.pbox img.ld{display:block}
+
+/* PROGRESS TRACKER */
+.progress-tracker{display:flex;align-items:center;gap:0;margin-bottom:16px;background:var(--bg4);border-radius:var(--rl);padding:10px 14px;border:1px solid var(--b2)}
+.pt-step{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--tx3);flex:1}
+.pt-step.done{color:var(--G)}.pt-step.active{color:var(--Y)}
+.pt-dot{width:20px;height:20px;border-radius:50%;background:var(--bg5);border:2px solid var(--b2);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all .2s}
+.pt-step.done .pt-dot{background:var(--Gd);border-color:var(--G);color:var(--G)}
+.pt-step.active .pt-dot{background:var(--Yd);border-color:var(--Y);color:var(--Y)}
+.pt-line{height:2px;flex:1;background:var(--b2);margin:0 4px}
+.pt-line.done{background:var(--G)}
+
+/* ══════════════════════════════════════
+   ITEM CHECKLIST — the star of the show
+   ══════════════════════════════════════ */
+.icl-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px 12px;background:var(--bg4);border-radius:var(--r);border:1px solid var(--b2)}
+.icl-progress{font-size:12px;font-weight:600;font-family:var(--fm)}
+.icl-progress .checked-count{color:var(--G)}
+.icl-progress .total-count{color:var(--tx2)}
+
+/* each item row */
+.icr{border-radius:var(--rl);border:2px solid var(--b2);margin-bottom:8px;overflow:hidden;transition:border-color .2s,background .2s}
+.icr.state-unchecked{background:var(--bg4);border-color:var(--b2)}
+.icr.state-checked{background:rgba(34,212,106,.05);border-color:rgba(34,212,106,.35)}
+.icr.state-partial{background:rgba(245,166,35,.05);border-color:rgba(245,166,35,.4)}
+.icr.state-damaged{background:rgba(240,69,69,.05);border-color:rgba(240,69,69,.35)}
+.icr.state-wrong{background:rgba(155,111,247,.07);border-color:rgba(155,111,247,.4)}
+
+/* main item row content */
+.icr-main{display:flex;align-items:center;gap:11px;padding:12px 13px;cursor:default}
+
+/* the big tap-target checkbox */
+.icr-check{width:40px;height:40px;border-radius:10px;border:2px solid var(--b3);background:var(--bg5);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .18s;flex-shrink:0;user-select:none}
+.icr-check:hover{border-color:var(--Y);background:var(--Yd)}
+.icr-check .ck-icon{font-size:18px;line-height:1}
+.state-checked .icr-check{background:var(--Gd);border-color:var(--G)}
+.state-partial .icr-check{background:var(--Ad);border-color:var(--A)}
+.state-damaged .icr-check{background:var(--Rd);border-color:var(--R)}
+.state-wrong .icr-check{background:rgba(155,111,247,.2);border-color:var(--P)}
+
+/* mini barcode */
+.icr-bc{display:flex;gap:1.5px;height:26px;align-items:flex-end;flex-shrink:0}
+.icr-bar{border-radius:1px}
+
+/* text */
+.icr-sku{font-family:var(--fm);font-size:12px;font-weight:600;color:var(--Y);letter-spacing:1.5px;margin-bottom:2px}
+.icr-desc{font-size:12px;color:var(--tx2)}
+
+/* qty display — tap to edit qty when partial */
+.icr-qty{background:var(--bg5);border:1.5px solid var(--b2);border-radius:7px;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;font-family:var(--fm);flex-shrink:0;transition:all .2s}
+.state-checked .icr-qty{border-color:rgba(34,212,106,.3);color:var(--G)}
+.state-partial .icr-qty{background:rgba(245,166,35,.15);border-color:rgba(245,166,35,.4);color:var(--A)}
+.state-damaged .icr-qty{border-color:rgba(240,69,69,.3);color:var(--R)}
+
+/* action buttons on each item */
+.icr-actions{display:flex;gap:5px;flex-shrink:0}
+.ia-btn{padding:5px 9px;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--fb);border:1px solid transparent;transition:all .14s;display:flex;align-items:center;gap:3px;white-space:nowrap}
+.ia-print{background:var(--Yd);color:var(--Y);border-color:rgba(232,255,71,.25)}.ia-print:hover{background:var(--Y);color:#0A0C0F}
+.ia-partial{background:rgba(245,166,35,.1);color:var(--A);border-color:rgba(245,166,35,.2)}.ia-partial:hover,.ia-partial.on{background:rgba(245,166,35,.22);border-color:var(--A)}
+.ia-dmg{background:rgba(240,69,69,.1);color:var(--R);border-color:rgba(240,69,69,.2)}.ia-dmg:hover,.ia-dmg.on{background:rgba(240,69,69,.2);border-color:var(--R)}
+.ia-wrong{background:rgba(155,111,247,.1);color:var(--P);border-color:rgba(155,111,247,.2)}.ia-wrong:hover,.ia-wrong.on{background:rgba(155,111,247,.2);border-color:var(--P)}
+
+/* expandable sub-panels per item */
+.icr-sub{border-top:1px solid var(--b2);padding:12px 13px;display:none;animation:fu .2s ease}
+.icr-sub.vis{display:block}
+
+/* partial qty row */
+.pq-row{display:flex;align-items:center;gap:10px;background:rgba(245,166,35,.07);border-radius:var(--r);padding:10px 12px;margin-bottom:10px}
+.pq-label{font-size:12px;color:var(--tx2);flex-shrink:0}
+.pq-expected{font-family:var(--fm);font-weight:700;color:var(--tx);font-size:13px;flex-shrink:0}
+.pq-arrow{color:var(--tx3);font-size:14px;flex-shrink:0}
+.pq-input-wrap{display:flex;align-items:center;gap:6px}
+.pq-btn{width:28px;height:28px;border-radius:6px;background:var(--bg4);border:1px solid var(--b2);color:var(--tx);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s;flex-shrink:0}
+.pq-btn:hover{background:var(--bg5)}
+.pq-num{width:44px;text-align:center;background:var(--bg5);border:1.5px solid var(--A);border-radius:6px;color:var(--A);font-family:var(--fm);font-size:15px;font-weight:700;padding:4px 0;outline:none}
+.pq-missing-label{font-size:11px;font-weight:600;color:var(--R);font-family:var(--fm);margin-left:auto}
+
+/* damage sub-panel */
+.dmg-sub{background:rgba(240,69,69,.05);border-radius:var(--r);padding:11px}
+.dmg-sub-title{font-size:11px;font-weight:700;color:var(--R);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:9px}
+.dmg-checks{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px}
+.dc{display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);padding:7px 9px;border-radius:var(--r);border:1px solid var(--b);font-size:12px;color:var(--tx2);transition:border-color .12s}
+.dc:hover{border-color:rgba(240,69,69,.3)}
+.dc input{width:14px;height:14px;accent-color:var(--R);cursor:pointer;flex-shrink:0}
+
+/* wrong product sub-panel */
+.wrong-sub{background:rgba(155,111,247,.05);border-radius:var(--r);padding:11px}
+.wrong-sub-title{font-size:11px;font-weight:700;color:var(--P);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:9px}
+
+/* CONFIRM MODAL */
+.cmo{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:2000;display:none}
+.cmo.open{display:flex;animation:fi .18s ease}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.cmbox{background:var(--bg2);border:2px solid var(--A);border-radius:var(--rxl);width:560px;max-width:96vw;overflow:hidden;max-height:90vh;display:flex;flex-direction:column}
+.cmh{background:rgba(245,166,35,.09);padding:15px 20px;border-bottom:1px solid rgba(245,166,35,.2);flex-shrink:0}
+.cmt{font-family:var(--fd);font-weight:700;font-size:16px;color:var(--A);display:flex;align-items:center;gap:8px}
+.cmb{padding:20px;overflow-y:auto}
+.cmf{padding:13px 20px;border-top:1px solid var(--b);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;background:var(--bg2)}
+
+/* summary row in confirm */
+.ci-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--b);background:var(--bg3)}
+.ci-row:last-child{border-bottom:none}
+.ci-row.checked{background:rgba(34,212,106,.05)}
+.ci-row.not-returned{background:rgba(240,69,69,.05)}
+.ci-row.partial{background:rgba(245,166,35,.05)}
+.ci-row.damaged{background:rgba(240,69,69,.05)}
+.ci-row.wrong{background:rgba(155,111,247,.06)}
+
+/* general modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:1000;display:none}
+.mo.open{display:flex;animation:fi .15s ease}
+.modal{background:var(--bg2);border:1px solid var(--b2);border-radius:var(--rxl);overflow:hidden;max-width:95vw;max-height:90vh;overflow-y:auto}
+.mh{padding:14px 19px;border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between}
+.mt{font-family:var(--fd);font-weight:700;font-size:15px}
+.mcl{width:27px;height:27px;border-radius:6px;background:var(--bg3);border:1px solid var(--b);color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+.mcl:hover{background:var(--Rd);color:var(--R)}
+.mb{padding:18px}.mf{padding:12px 18px;border-top:1px solid var(--b);display:flex;gap:8px;justify-content:flex-end}
+
+/* label preview */
+.lp{background:white;border-radius:var(--r);padding:14px;margin:11px 0;border:3px solid var(--Y);position:relative}
+.lp-tag{position:absolute;top:-9px;right:10px;background:var(--Y);color:#0A0C0F;font-size:9px;font-weight:700;padding:1px 8px;border-radius:4px;font-family:var(--fm)}
+.lp-bc{display:flex;gap:1.5px;height:46px;align-items:stretch;margin:0 auto 5px;justify-content:center;width:fit-content}
+
+/* days chip */
+.dchip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;font-family:var(--fm)}
+.dg2{background:rgba(34,212,106,.14);color:var(--G)}.da{background:rgba(245,166,35,.14);color:var(--A)}.dr{background:rgba(240,69,69,.14);color:var(--R)}
+
+/* BI */
+.bi-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.lrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--b)}
+.lrow:last-child{border-bottom:none}
+.rbt{flex:1;height:7px;background:var(--bg5);border-radius:4px;overflow:hidden}
+.rbf{height:100%;border-radius:4px;transition:width .6s}
+.apill{padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;font-family:var(--fm);white-space:nowrap}
+.apr{background:rgba(240,69,69,.18);color:var(--R)}.apa{background:rgba(245,166,35,.18);color:var(--A)}.apb{background:rgba(79,142,247,.18);color:var(--B)}.apg{background:rgba(34,212,106,.18);color:var(--G)}
+
+/* toggle */
+.tgl{width:36px;height:20px;background:var(--bg4);border-radius:10px;border:1px solid var(--b2);cursor:pointer;position:relative;transition:background .2s}
+.tgl.on{background:var(--Gd);border-color:rgba(34,212,106,.4)}
+.tgl::after{content:'';width:14px;height:14px;border-radius:50%;background:var(--tx3);position:absolute;top:2px;left:2px;transition:transform .2s,background .2s}
+.tgl.on::after{transform:translateX(16px);background:var(--G)}
+.tr{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--b)}
+.tr:last-child{border-bottom:none}
+
+/* ptabs */
+.ptabs{display:flex;gap:2px;background:var(--bg3);border-radius:var(--rl);padding:3px;margin-bottom:16px;width:fit-content}
+.ptab{padding:7px 14px;border-radius:9px;font-size:12px;font-weight:500;color:var(--tx2);cursor:pointer;transition:all .15s;border:none;background:none;font-family:var(--fb)}
+.ptab.active{background:var(--bg2);color:var(--tx);border:1px solid var(--b)}
+
+/* progress bar */
+.prog{height:5px;background:var(--bg5);border-radius:3px;overflow:hidden;margin-top:4px}
+.pf{height:100%;border-radius:3px;transition:width .5s}
+
+/* email chip */
+.echip{display:inline-flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b2);border-radius:6px;padding:4px 10px;font-size:12px;font-family:var(--fm);margin:3px}
+.echip button{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 4px}
+.echip button:hover{color:var(--R)}
+
+/* toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--b2);border-radius:var(--rl);padding:12px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;z-index:9000;transform:translateY(100px);opacity:0;transition:all .25s;max-width:360px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.s{border-color:rgba(34,212,106,.4)}.toast.e{border-color:rgba(240,69,69,.4)}.toast.w{border-color:rgba(245,166,35,.4)}
+
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="ls">
+  <div class="lbox">
+    <div class="ll"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M2 18L8 12L13 17L22 6" stroke="#0A0C0F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div style="font-family:var(--fd);font-weight:800;font-size:20px;margin-bottom:2px">ReturnHub</div>
+    <div style="font-size:12px;color:var(--tx2);margin-bottom:22px">Paragonfitwear · Warehouse Operations</div>
+    <div class="ucards" id="ucards"></div>
+    <div id="pinsec" style="display:none">
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:8px" id="pinlbl">Enter PIN</div>
+      <input class="pin-in" id="pin" type="password" maxlength="4" placeholder="····" autocomplete="off">
+      <button class="btn bY" style="width:100%;justify-content:center;margin-bottom:7px" onclick="doLogin()">Sign In →</button>
+      <button class="btn bs" style="width:100%;justify-content:center" onclick="cancelLogin()">← Back</button>
+    </div>
+    <div style="font-size:10px;color:var(--tx3);margin-top:13px">Secure · All activity logged · Multi-merchant</div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM PARTIAL MODAL ══ -->
+<div class="cmo" id="confirm-modal">
+  <div class="cmbox">
+    <div class="cmh">
+      <div class="cmt">⚑ Confirm — Items Not Returned</div>
+    </div>
+    <div class="cmb">
+      <div style="font-size:13px;color:var(--tx2);margin-bottom:14px;line-height:1.6">
+        Review below. <strong style="color:var(--tx)">Checked items</strong> will be marked as <strong style="color:var(--G)">RECEIVED</strong>. Items marked <strong style="color:var(--R)">Not Returned</strong> or <strong style="color:var(--A)">Partial</strong> will be logged in the discrepancy report for Paragon.
+      </div>
+      <!-- summary of ALL items with their state -->
+      <div style="border-radius:var(--rl);overflow:hidden;border:1px solid var(--b2);margin-bottom:16px" id="confirm-summary"></div>
+      <div class="fg">
+        <label class="fl" style="color:var(--A)">Notes to Paragon about missing or partial items</label>
+        <textarea class="fta" id="confirm-notes" placeholder="Describe what was and wasn't in the package, packaging condition, any customer communication…" style="min-height:80px;border-color:rgba(245,166,35,.3)"></textarea>
+      </div>
+      <div style="background:rgba(240,69,69,.08);border:1px solid rgba(240,69,69,.2);border-radius:var(--r);padding:10px 13px;font-size:12px;color:var(--R)" id="confirm-warning"></div>
+    </div>
+    <div class="cmf">
+      <button class="btn bs" onclick="cancelConfirm()">← Go Back &amp; Re-check</button>
+      <button class="btn bA lg" onclick="confirmAndProcess()">Confirm &amp; Process Return</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PRINT MODAL ══ -->
+<div class="mo" id="pmo">
+  <div class="modal" style="width:480px">
+    <div class="mh"><div class="mt">🖨 Print SKU Label</div><button class="mcl" onclick="cm('pmo')">✕</button></div>
+    <div class="mb">
+      <div class="g2" style="margin-bottom:12px">
+        <div class="fg"><label class="fl">Printer</label><select class="fsel" id="pp-sel"></select></div>
+        <div class="fg"><label class="fl">Copies</label><input type="number" class="fi" id="pp-copies" value="1" min="1" max="99"></div>
+      </div>
+      <div class="g2" style="margin-bottom:12px">
+        <div class="fg"><label class="fl">Label Size</label>
+          <select class="fsel" id="pp-size"><option value="2x1">2"×1" Small</option><option value="3x2" selected>3"×2" Standard</option><option value="4x2">4"×2" Wide</option><option value="4x3">4"×3" Large</option><option value="4x6">4"×6" Shipping</option></select>
+        </div>
+        <div class="fg"><label class="fl">Label Type</label>
+          <select class="fsel" id="pp-type"><option>Direct Thermal</option><option>Thermal Transfer</option><option>Inkjet / Laser</option></select>
+        </div>
+      </div>
+      <div class="lp">
+        <div class="lp-tag">PREVIEW</div>
+        <div style="font-size:9px;color:#777;text-align:center;margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;font-family:Arial">PARAGONFITWEAR</div>
+        <div class="lp-bc" id="lp-bc"></div>
+        <div style="font-size:13px;font-weight:700;color:#000;text-align:center;letter-spacing:2px;font-family:'Courier New',monospace;margin-bottom:2px" id="lp-sku">—</div>
+        <div style="font-size:11px;color:#555;text-align:center;font-family:Arial" id="lp-desc">—</div>
+        <div style="font-size:9px;color:#888;text-align:center;font-family:'Courier New',monospace;margin-top:2px" id="lp-ord">—</div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="cm('pmo')">Cancel</button><button class="btn bY lg" onclick="sendPrint()">🖨 Send to Printer</button></div>
+  </div>
+</div>
+
+<!-- ══ ADD PRINTER MODAL ══ -->
+<div class="mo" id="apm">
+  <div class="modal" style="width:460px">
+    <div class="mh"><div class="mt">Add New Printer</div><button class="mcl" onclick="cm('apm')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">Printer Name</label><input class="fi" id="np-name" placeholder="Station A — Zebra ZD410"></div>
+      <div class="fg"><label class="fl">IP Address</label><input class="fi" id="np-ip" placeholder="192.168.1.100"></div>
+      <div class="g2">
+        <div class="fg"><label class="fl">Port</label><input class="fi" id="np-port" value="9100"></div>
+        <div class="fg"><label class="fl">Brand</label><select class="fsel" id="np-brand"><option>Zebra</option><option>Dymo</option><option>Honeywell</option><option>Citizen</option><option>TSC</option><option>Other</option></select></div>
+      </div>
+      <div class="g2">
+        <div class="fg"><label class="fl">Label Language</label><select class="fsel" id="np-lang"><option>ZPL</option><option>EPL</option><option>DPL</option><option>RAW</option></select></div>
+        <div class="fg"><label class="fl">Default Size</label><select class="fsel" id="np-size"><option value="2x1">2"×1"</option><option value="3x2" selected>3"×2"</option><option value="4x2">4"×2"</option><option value="4x6">4"×6"</option></select></div>
+      </div>
+      <div class="fg" style="margin-bottom:0"><label class="fl">Station / Location</label><input class="fi" id="np-loc" placeholder="Returns Station A"></div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="cm('apm')">Cancel</button><button class="btn bs" onclick="testPC()">Test</button><button class="btn bY" onclick="saveP()">Add Printer</button></div>
+  </div>
+</div>
+
+<!-- ══ SEND REPORT EMAIL MODAL ══ -->
+<div class="mo" id="emo">
+  <div class="modal" style="width:520px">
+    <div class="mh"><div class="mt">📧 Send Weekly Report to Paragon</div><button class="mcl" onclick="cm('emo')">✕</button></div>
+    <div class="mb">
+      <div style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);border-radius:var(--rl);padding:11px;margin-bottom:14px;font-size:12px;color:var(--B)">ℹ Sends the full weekly Excel report as an attachment to configured recipients.</div>
+      <div class="fg"><label class="fl">Report Period</label><select class="fsel" id="e-period"><option>Apr 1–6, 2026 (Current Week)</option><option>Mar 25–31, 2026</option><option>Mar 18–24, 2026</option></select></div>
+      <div class="fg"><label class="fl">Recipients</label>
+        <div id="email-chips" style="min-height:36px;background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);padding:5px;display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px"></div>
+        <div style="display:flex;gap:7px"><input class="fi" id="email-add-in" placeholder="Add email…" style="flex:1" onkeydown="if(event.key==='Enter')addEmail()"><button class="btn bs sm" onclick="addEmail()">+ Add</button></div>
+      </div>
+      <div class="fg"><label class="fl">Report Includes</label>
+        <div style="font-size:12px;line-height:2;color:var(--tx2)">✓ All completed returns with restock confirmation<br>✓ Damaged returns with full per-item notes<br>✓ All missing/partial items by order with qty breakdown<br>✓ Days held per return (Shopify ship date mapping)<br>✓ Per-unit billing summary<br>✓ Launch &amp; promo BI summary</div>
+      </div>
+      <div class="fg" style="margin-bottom:0"><label class="fl">Additional Notes</label><textarea class="fta" id="e-notes" placeholder="Any additional context…" style="min-height:55px"></textarea></div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="cm('emo')">Cancel</button><button class="btn bs" onclick="dlReport()">↓ Download Only</button><button class="btn bY" onclick="sendReport()">📧 Send Now</button></div>
+  </div>
+</div>
+
+<!-- ══ SIDEBAR ══ -->
+<div class="sb" id="sb" style="display:none">
+  <div class="sb-brand">
+    <div class="sb-logo">
+      <div class="lmark"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 12L5.5 7.5L9 11L15 4" stroke="#0A0C0F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="ltxt">Return<span>Hub</span></div>
+    </div>
+    <div class="cpill">Returns Platform</div>
+  </div>
+  <select class="msel" id="merch-select" onchange="switchM(this.value)">
+    <option value="paragon">🟢 Paragonfitwear</option>
+    <option value="add">⊕ Add Merchant…</option>
+  </select>
+  <nav class="sb-nav">
+    <div class="nsl">Operations</div>
+    <button class="ni active" onclick="nav('scan')" id="nav-scan"><span class="ic">📦</span>Scan &amp; Process</button>
+    <button class="ni" onclick="nav('queue')" id="nav-queue"><span class="ic">📋</span>Return Queue<span class="nbc a" id="qct">16</span></button>
+    <button class="ni" onclick="nav('rr')" id="nav-rr"><span class="ic">🐇</span>Return Rabbit</button>
+    <button class="ni" onclick="nav('flags')" id="nav-flags"><span class="ic">⚑</span>Discrepancy Report<span class="nbc r" id="fct">3</span></button>
+    <div class="nsl">Analytics</div>
+    <button class="ni" onclick="nav('bi')" id="nav-bi"><span class="ic">📈</span>Launch BI</button>
+    <button class="ni" onclick="nav('dh')" id="nav-dh"><span class="ic">📅</span>Days Held</button>
+    <div class="nsl">Finance</div>
+    <button class="ni" onclick="nav('billing')" id="nav-billing"><span class="ic">💰</span>Billing &amp; Invoices</button>
+    <div class="nsl">Settings</div>
+    <button class="ni" onclick="nav('email')" id="nav-email"><span class="ic">📧</span>Email Reports</button>
+    <button class="ni" onclick="nav('printers')" id="nav-printers"><span class="ic">🖨</span>Printer Manager</button>
+    <button class="ni" onclick="nav('merchants')" id="nav-merchants"><span class="ic">🏪</span>Merchants</button>
+    <button class="ni" onclick="nav('rrsettings')" id="nav-rrsettings"><span class="ic">🔌</span>RR Integration</button>
+    <button class="ni" onclick="nav('users')" id="nav-users"><span class="ic">👥</span>Users</button>
+  </nav>
+  <div class="sb-u">
+    <div class="ur">
+      <div class="uav" id="sav"></div>
+      <div><div style="font-size:12px;font-weight:600" id="sname">—</div><div style="font-size:10px;color:var(--tx3)" id="srole">—</div></div>
+      <div style="margin-left:auto;font-size:14px;color:var(--tx3);cursor:pointer" onclick="logout()">⏏</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div class="main" id="app" style="display:none">
+  <div class="topbar">
+    <div class="tb-l">
+      <div class="pt" id="ptitle">Scan &amp; Process</div>
+      <span class="mbadge" id="mlabel">Paragonfitwear</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:9px">
+      <div class="tstat" id="rr-status-dot"><div class="sdot" id="rr-sdot" style="background:var(--tx3)"></div><span id="rr-status-txt">Return Rabbit</span></div>
+      <div class="tstat"><div class="sdot g"></div>Shopify</div>
+      <button class="btn bY sm" onclick="om('emo')" style="font-size:11px">📧 Send Report</button>
+      <div class="clk" id="clk">--:--:--</div>
+    </div>
+  </div>
+
+  <div class="pc">
+
+    <!-- ══ SCAN & PROCESS ══ -->
+    <div class="sec active" id="tab-scan">
+      <div class="srow s5" style="margin-bottom:14px">
+        <div class="sc g"><div class="sl">Today's Returns</div><div class="sv cg" id="s1">47</div><div class="subs">+12 this hour</div></div>
+        <div class="sc b"><div class="sl">Processed</div><div class="sv cb" id="s2">31</div><div class="subs">66% done</div></div>
+        <div class="sc a"><div class="sl">Pending</div><div class="sv ca" id="s3">16</div><div class="subs">Awaiting scan</div></div>
+        <div class="sc r"><div class="sl">Discrepancies</div><div class="sv cr" id="s4">3</div><div class="subs">Flagged for Paragon</div></div>
+        <div class="sc y"><div class="sl">Your Count</div><div class="sv cy" id="s5">0</div><div class="subs" id="s5s">This session</div></div>
+      </div>
+
+      <div class="sz" id="sz" onclick="document.getElementById('bc').focus()">
+        <div style="margin-bottom:7px"><svg width="42" height="42" viewBox="0 0 42 42" fill="none"><rect x="2" y="7" width="4" height="28" rx="2" fill="#E8FF47"/><rect x="10" y="7" width="2" height="28" rx="1" fill="#E8FF47" opacity=".5"/><rect x="16" y="7" width="5" height="28" rx="2" fill="#E8FF47"/><rect x="25" y="7" width="2" height="28" rx="1" fill="#E8FF47" opacity=".5"/><rect x="31" y="7" width="6" height="28" rx="2" fill="#E8FF47"/><rect x="41" y="7" width="2" height="28" rx="1" fill="#E8FF47" opacity=".35"/><line x1="0" y1="21" x2="42" y2="21" stroke="#F04545" stroke-width="2" opacity=".7"/></svg></div>
+        <div style="font-family:var(--fd);font-size:18px;font-weight:700;margin-bottom:2px" id="stitle">Ready to Scan</div>
+        <div style="font-size:13px;color:var(--tx2)" id="ssub">Point scanner at shipping label · click and type · F2 = demo scan</div>
+        <input class="bc-in" id="bc" placeholder="Scan barcode or tracking number…" autocomplete="off" onkeydown="onBK(event)" oninput="onBI(this)">
+      </div>
+
+      <!-- RETURN PANEL -->
+      <div class="rp" id="rp">
+
+        <!-- header row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--G);box-shadow:0 0 5px var(--G)"></div>
+            <span style="font-family:var(--fd);font-size:15px;font-weight:700">Return Identified</span>
+            <span class="badge" id="rp-badge">ARRIVED</span>
+          </div>
+          <div style="display:flex;gap:7px;align-items:center">
+            <span class="dchip" id="dchip"></span>
+            <button class="btn bs sm" onclick="clearScan()">✕ Clear</button>
+          </div>
+        </div>
+
+        <!-- detail fields + photo -->
+        <div style="display:grid;grid-template-columns:1fr 148px;gap:12px;margin-bottom:14px">
+          <div class="dg">
+            <div><div class="dfl">Order ID</div><div class="dfv m" id="rp-oid">—</div></div>
+            <div><div class="dfl">Customer</div><div class="dfv" id="rp-cust">—</div></div>
+            <div><div class="dfl">RMA #</div><div class="dfv m" id="rp-rma">—</div></div>
+            <div><div class="dfl">Return Reason</div><div class="dfv" id="rp-reason">—</div></div>
+            <div><div class="dfl">Tracking #</div><div class="dfv m" id="rp-track" style="font-size:10px;word-break:break-all">—</div></div>
+            <div><div class="dfl">Shopify Ship Date</div><div class="dfv" id="rp-ship">—</div></div>
+            <div><div class="dfl">RMA Created</div><div class="dfv" id="rp-date">—</div></div>
+            <div><div class="dfl">Return Rabbit ID</div><div class="dfv m" id="rp-rrid">—</div></div>
+          </div>
+          <div>
+            <div class="dfl" style="margin-bottom:5px">Product Photo</div>
+            <div class="pbox" id="pbox" onclick="loadPhoto()">
+              <div id="pp-ph" style="text-align:center;padding:8px"><div style="font-size:26px;margin-bottom:5px">📷</div><div style="font-size:10px;color:var(--tx3);line-height:1.4">Tap to load<br>from RR / Shopify</div></div>
+              <img id="pimg" alt="Product" onerror="imgErr(this)">
+            </div>
+            <div style="display:flex;gap:4px;margin-top:5px">
+              <button class="btn bs sm" style="flex:1;justify-content:center;font-size:10px" onclick="loadPhoto()">🔄 Load Photo</button>
+              <button class="btn bs sm" style="font-size:10px" onclick="openShopify()" title="Shopify">🛍</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ★★★ ITEM VALIDATION CHECKLIST ★★★ -->
+        <div class="icl-header">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:1px">Validate Each Item</div>
+            <div style="font-size:11px;color:var(--tx3)">Tap ✓ checkbox to mark received · Leave ✕ = not returned · Use flags for issues</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="icl-progress"><span class="checked-count" id="chk-count">0</span><span class="total-count" id="chk-total"> / 0 received</span></div>
+            <button class="btn bs sm" onclick="checkAll(true)" style="font-size:11px">✓ All</button>
+            <button class="btn bR sm" onclick="checkAll(false)" style="font-size:11px">✕ None</button>
+          </div>
+        </div>
+        <div id="icl" style="margin-bottom:12px"></div>
+
+        <!-- process button -->
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn bG lg" onclick="tryProcess()" id="proc-btn" style="flex:1;justify-content:center">
+            <span id="proc-btn-txt">✓ Validate &amp; Process Return</span>
+          </button>
+          <div style="font-size:11px;color:var(--tx3);text-align:center;line-height:1.4" id="proc-hint"></div>
+        </div>
+      </div>
+
+      <div style="text-align:center;padding:8px 0;font-size:11px;color:var(--tx3)">
+        Demo: <span style="font-family:var(--fm);color:var(--Y);cursor:pointer" onclick="demo1()">Single item (Sarah)</span> ·
+        <span style="font-family:var(--fm);color:var(--Y);cursor:pointer" onclick="demo2()">3-item partial (Daniel)</span> ·
+        <span style="font-family:var(--fm);color:var(--Y);cursor:pointer" onclick="demo3()">Damaged (James)</span> ·
+        Press <span style="font-family:var(--fm);color:var(--Y)">F2</span> random
+      </div>
+    </div>
+
+    <!-- ══ RETURN QUEUE ══ -->
+    <div class="sec" id="tab-queue">
+      <div style="display:flex;gap:6px;margin-bottom:13px;flex-wrap:wrap;align-items:center">
+        <div style="display:flex;gap:5px;flex-wrap:wrap" id="qf">
+          <button class="btn bs sm" onclick="fQ('all',this)" style="border-color:var(--Y);color:var(--Y)">All (47)</button>
+          <button class="btn bs sm" onclick="fQ('pending',this)">Pending (16)</button>
+          <button class="btn bs sm" onclick="fQ('processed',this)">Processed (31)</button>
+          <button class="btn bs sm" onclick="fQ('flagged',this)">Flagged (5)</button>
+        </div>
+        <button class="btn bY sm" style="margin-left:auto" onclick="om('emo')">📧 Send Report</button>
+      </div>
+      <div class="card"><div class="ch"><div class="ctitle">Return Queue — Paragonfitwear</div><span style="font-size:11px;color:var(--tx3)">Auto-refresh 30s</span></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Status</th><th>Order</th><th>Customer</th><th>SKU(s)</th><th>Description</th><th>Exp</th><th>Rcvd</th><th>Missing</th><th>Ship Date</th><th>Days Held</th><th>Condition</th><th>RMA</th><th>RR ID</th><th>Date</th><th>Action</th></tr></thead><tbody id="qtbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══ RETURN RABBIT ══ -->
+    <div class="sec" id="tab-rr">
+      <div style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);border-radius:var(--rl);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--B)">ℹ Connected to <strong>returnrabbit.app</strong> — syncs automatically when customers submit returns at paragonfitwear.com/returns.</div>
+      <div class="srow s4" style="margin-bottom:14px">
+        <div class="sc b"><div class="sl">Open RMAs</div><div class="sv cb">20</div><div class="subs">Active in RR</div></div>
+        <div class="sc a"><div class="sl">In Transit</div><div class="sv ca">12</div><div class="subs">Inbound</div></div>
+        <div class="sc g"><div class="sl">Arrived Today</div><div class="sv cg">19</div><div class="subs">At warehouse</div></div>
+        <div class="sc y"><div class="sl">Completed</div><div class="sv cy">31</div><div class="subs">Restocked</div></div>
+      </div>
+      <div class="card"><div class="ch"><div class="ctitle">🐇 Return Rabbit — Live RMA Feed</div><div style="display:flex;gap:7px"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2)"><div class="sdot g"></div>returnrabbit.app</div><button class="btn bs sm" onclick="fetchRR()">↻ Refresh</button></div></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>RR ID</th><th>Order</th><th>Customer</th><th>Photo</th><th>SKU</th><th>Description</th><th>Qty</th><th>Value</th><th>Ship Date</th><th>Days Held</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead><tbody id="rrtbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══ DISCREPANCY REPORT ══ -->
+    <div class="sec" id="tab-flags">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div><div style="font-family:var(--fd);font-size:17px;font-weight:700">Discrepancy Report — Paragonfitwear</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Partial returns · Missing items · Wrong products · Damage reports</div></div>
+        <div style="display:flex;gap:7px"><button class="btn bs sm" onclick="dlReport()">↓ Excel</button><button class="btn bY sm" onclick="om('emo')">📧 Email to Paragon</button></div>
+      </div>
+      <div class="srow s4" style="margin-bottom:14px">
+        <div class="sc r"><div class="sl">Total Flags</div><div class="sv cr" id="fl-t">3</div><div class="subs">This week</div></div>
+        <div class="sc a"><div class="sl">Partial / Missing</div><div class="sv ca" id="fl-p">1</div><div class="subs">Units not returned</div></div>
+        <div class="sc a"><div class="sl">Wrong Product</div><div class="sv ca" id="fl-w">1</div><div class="subs">Quarantined</div></div>
+        <div class="sc r"><div class="sl">Damaged Out</div><div class="sv cr" id="fl-d">1</div><div class="subs">With notes</div></div>
+      </div>
+      <div class="card"><div class="ch"><div class="ctitle">⚑ Flagged Items</div><span class="badge ba" id="flag-badge">3 OPEN</span></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Issue Type</th><th>Order ID</th><th>RR ID</th><th>Customer</th><th>SKU</th><th>Description</th><th>Exp Qty</th><th>Rcvd</th><th>Not Returned</th><th>Days Held</th><th>Disposition</th><th>Notes for Paragon</th><th>Date</th><th>Status</th></tr></thead><tbody id="ftbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══ LAUNCH BI ══ -->
+    <div class="sec" id="tab-bi">
+      <div style="background:rgba(155,111,247,.08);border:1px solid rgba(155,111,247,.2);border-radius:var(--rl);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--P)">📈 Return Rate = Returns ÷ Units Shipped × 100%. &gt;15% on a launch = critical. Combine with Days Held to distinguish sizing issues from quality defects.</div>
+      <div class="srow s4" style="margin-bottom:14px">
+        <div class="sc r"><div class="sl">Critical Launches</div><div class="sv cr">2</div><div class="subs">&gt;15% rate</div></div>
+        <div class="sc a"><div class="sl">Under Investigation</div><div class="sv ca">3</div><div class="subs">10–15% rate</div></div>
+        <div class="sc g"><div class="sl">Healthy</div><div class="sv cg">5</div><div class="subs">&lt;10% rate</div></div>
+        <div class="sc p"><div class="sl">Promo Launches</div><div class="sv cp">4</div><div class="subs">This quarter</div></div>
+      </div>
+      <div class="bi-grid">
+        <div class="card"><div class="ch"><div class="ctitle">Return Rate by Launch</div><span style="font-size:11px;color:var(--tx3)">Q1 2026</span></div><div class="cbody" id="bi-launches"></div></div>
+        <div class="card"><div class="ch"><div class="ctitle">Return Reasons</div></div><div class="cbody" id="bi-reasons"></div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="ch"><div class="ctitle">🔍 Key Insights &amp; Recommendations</div></div><div class="cbody" id="bi-insights"></div></div>
+    </div>
+
+    <!-- ══ DAYS HELD ══ -->
+    <div class="sec" id="tab-dh">
+      <div style="background:rgba(20,212,192,.08);border:1px solid rgba(20,212,192,.2);border-radius:var(--rl);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--T)">📅 Days Held = RMA created date minus Shopify ship date. <span style="color:var(--G)">Green &lt;30d</span> · <span style="color:var(--A)">Amber 31–60d</span> · <span style="color:var(--R)">Red &gt;60d</span></div>
+      <div class="srow s4" style="margin-bottom:14px">
+        <div class="sc g"><div class="sl">Avg Days Held</div><div class="sv cg">50</div><div class="subs">All returns</div></div>
+        <div class="sc g"><div class="sl">Under 30 Days</div><div class="sv cg">2</div><div class="subs">Quick returns</div></div>
+        <div class="sc a"><div class="sl">31–60 Days</div><div class="sv ca">4</div><div class="subs">Normal window</div></div>
+        <div class="sc r"><div class="sl">Over 60 Days</div><div class="sv cr">4</div><div class="subs">Late returns</div></div>
+      </div>
+      <div class="card"><div class="ch"><div class="ctitle">Ship Date → Return Date Analysis</div><span style="font-size:11px;color:var(--tx3)">Shopify Orders API</span></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Order ID</th><th>Customer</th><th>SKU</th><th>Product</th><th>Ship Date</th><th>RMA Created</th><th>Days Held</th><th>Reason</th><th>Condition</th><th>Outcome</th></tr></thead><tbody id="dh-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══ BILLING ══ -->
+    <div class="sec" id="tab-billing">
+      <div class="ptabs">
+        <button class="ptab active" onclick="bTab('w',this)">Weekly Invoices</button>
+        <button class="ptab" onclick="bTab('h',this)">Invoice History</button>
+        <button class="ptab" onclick="bTab('r',this)">Rate Settings</button>
+      </div>
+      <div id="bt-w">
+        <div class="srow s4" style="margin-bottom:14px">
+          <div class="sc g"><div class="sl">This Week Units</div><div class="sv cg">47</div><div class="subs">Billable returns</div></div>
+          <div class="sc y"><div class="sl">This Week Total</div><div class="sv cy">$235.00</div><div class="subs">@ $5.00/unit</div></div>
+          <div class="sc b"><div class="sl">MTD Revenue</div><div class="sv cb">$890.00</div><div class="subs">April 2026</div></div>
+          <div class="sc a"><div class="sl">Unpaid</div><div class="sv ca">$540.00</div><div class="subs">2 invoices</div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+          <div style="font-family:var(--fd);font-size:15px;font-weight:700">Weekly Billing — Paragonfitwear</div>
+          <div style="display:flex;gap:7px"><button class="btn bs sm" onclick="dlReport()">↓ Excel</button><button class="btn bY sm" onclick="om('emo')">📧 Email</button></div>
+        </div>
+        <div id="bill-w"></div>
+      </div>
+      <div id="bt-h" style="display:none"><div class="card"><div class="ch"><div class="ctitle">Invoice History</div></div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Invoice #</th><th>Period</th><th>Orders</th><th>Units</th><th>Rate</th><th>Total</th><th>Status</th><th>Sent</th></tr></thead><tbody id="ih-tbody"></tbody></table></div></div></div>
+      <div id="bt-r" style="display:none">
+        <div class="g2">
+          <div class="card"><div class="ch"><div class="ctitle">Rate Config</div></div><div class="cbody">
+            <div class="fg"><label class="fl">Base Rate / Unit</label><div style="display:flex;gap:7px;align-items:center"><span style="color:var(--tx2)">$</span><input class="fi" value="5.00" style="flex:1"></div></div>
+            <div class="fg"><label class="fl">Damaged Rate / Unit</label><div style="display:flex;gap:7px;align-items:center"><span style="color:var(--tx2)">$</span><input class="fi" value="3.50"></div></div>
+            <div class="fg"><label class="fl">Billing Cycle</label><select class="fsel"><option>Weekly (Mon–Sun)</option><option>Bi-Weekly</option><option>Monthly</option></select></div>
+            <div class="fg" style="margin-bottom:0"><label class="fl">Client Email</label><input class="fi" value="ops@paragonfitwear.com"></div>
+            <button class="btn bY" style="width:100%;justify-content:center;margin-top:10px" onclick="toast('✓ Rates saved','s')">Save</button>
+          </div></div>
+          <div class="card"><div class="ch"><div class="ctitle">Billing Rules</div></div><div class="cbody">
+            <div class="tr"><div><div style="font-size:13px;font-weight:500">Bill per unit (not order)</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="tr"><div><div style="font-size:13px;font-weight:500">Include damaged items</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="tr"><div><div style="font-size:13px;font-weight:500">Auto-generate weekly</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="tr"><div><div style="font-size:13px;font-weight:500">Email automatically</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="tr"><div><div style="font-size:13px;font-weight:500">Supervisor approval</div></div><div class="tgl" onclick="this.classList.toggle('on')"></div></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ EMAIL ══ -->
+    <div class="sec" id="tab-email">
+      <div style="font-family:var(--fd);font-size:17px;font-weight:700;margin-bottom:16px">Email Report Settings</div>
+      <div class="g2">
+        <div class="card"><div class="ch"><div class="ctitle">Paragonfitwear Recipients</div><button class="btn bY sm" onclick="om('emo')">Send Now</button></div><div class="cbody">
+          <div class="fg"><label class="fl">Current Recipients</label><div id="email-display"></div></div>
+          <div class="fg"><label class="fl">Add Recipient</label><div style="display:flex;gap:7px"><input class="fi" id="email-new" placeholder="name@paragonfitwear.com" style="flex:1" onkeydown="if(event.key==='Enter')addEmailList()"><button class="btn bs sm" onclick="addEmailList()">+ Add</button></div></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">Schedule</label><select class="fsel"><option>Every Monday at 8:00 AM</option><option>Every Friday at 5:00 PM</option><option>Manual Only</option></select></div>
+        </div></div>
+        <div class="card"><div class="ch"><div class="ctitle">Report Contents</div></div><div class="cbody">
+          <div class="tr"><div><div style="font-size:13px;font-weight:500">Completed returns (restocked)</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="tr"><div><div style="font-size:13px;font-weight:500">Damaged items with notes</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="tr"><div><div style="font-size:13px;font-weight:500">Missing / partial items</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="tr"><div><div style="font-size:13px;font-weight:500">Days held analysis</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="tr"><div><div style="font-size:13px;font-weight:500">Launch BI summary</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="tr"><div><div style="font-size:13px;font-weight:500">Weekly billing total</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+        </div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="ch"><div class="ctitle">Email History</div></div>
+        <table class="tbl"><thead><tr><th>Date Sent</th><th>Period</th><th>Recipients</th><th>Subject</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td style="font-size:12px;color:var(--tx2)">Apr 1, 2026</td><td>Mar 25–31</td><td class="mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="adc2dddeedddccdfcccac2c3cbc4d9dac8ccdf83cec2c0">[email&#160;protected]</a></td><td style="font-size:12px">Weekly Returns Report — Mar 25–31, 2026</td><td><span class="badge bg">Delivered</span></td></tr>
+          <tr><td style="font-size:12px;color:var(--tx2)">Mar 25, 2026</td><td>Mar 18–24</td><td class="mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2b445b586b5b4a594a4c44454d425f5c4e4a5905484446">[email&#160;protected]</a></td><td style="font-size:12px">Weekly Returns Report — Mar 18–24, 2026</td><td><span class="badge bg">Delivered</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- ══ PRINTERS ══ -->
+    <div class="sec" id="tab-printers">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-family:var(--fd);font-size:16px;font-weight:700">Printer Manager</div><button class="btn bY" onclick="om('apm')">+ Add Printer</button></div>
+      <div id="plist"></div>
+    </div>
+
+    <!-- ══ MERCHANTS ══ -->
+    <div class="sec" id="tab-merchants">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div><div style="font-family:var(--fd);font-size:16px;font-weight:700">Merchant Accounts</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Each merchant has isolated data, billing, and reports</div></div><button class="btn bY" onclick="addMerchant()">+ Add Merchant</button></div>
+      <div id="merch-list"></div>
+    </div>
+
+    <!-- ══ USERS ══ -->
+    <div class="sec" id="tab-users">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-family:var(--fd);font-size:16px;font-weight:700">Users &amp; Access</div><button class="btn bY">+ Add User</button></div>
+      <div class="card"><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Worker</th><th>Role</th><th>PIN</th><th>Merchant Access</th><th>Billing</th><th>Last Login</th><th>Status</th><th></th></tr></thead><tbody id="utbody"></tbody></table></div></div>
+    </div>
+
+  </div>
+</div>
+<div class="toast" id="tst"></div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ══════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════
+const USERS=[
+  {id:'maria',n:'Maria S.',i:'MS',c:'#4F8EF7',role:'Senior Worker',pin:'1234',billing:false},
+  {id:'bob',n:'Bob T.',i:'BT',c:'#22D46A',role:'Worker',pin:'2222',billing:false},
+  {id:'linda',n:'Linda K.',i:'LK',c:'#F5A623',role:'Worker',pin:'3333',billing:false},
+  {id:'james',n:'James R.',i:'JR',c:'#9B6FF7',role:'Worker',pin:'4444',billing:false},
+  {id:'admin',n:'Admin',i:'AD',c:'#E8FF47',role:'Administrator',pin:'0000',billing:true},
+];
+
+let printers=[
+  {id:'p1',n:'Station A — Zebra ZD410',ip:'192.168.1.101',port:'9100',brand:'Zebra',lang:'ZPL',size:'3x2',loc:'Returns Station A',def:true,online:true},
+  {id:'p2',n:'Station B — Zebra ZD410',ip:'192.168.1.102',port:'9100',brand:'Zebra',lang:'ZPL',size:'3x2',loc:'Returns Station B',def:false,online:true},
+];
+
+// itemState per item idx:
+// { state: 'unchecked'|'checked'|'partial'|'damaged'|'wrong',
+//   rcvQty: number, dmgChecks: [], dmgNotes: '', dmgDisp: '', wrongNotes: '' }
+let itemStates = {};
+
+const RETURNS=[
+  {id:'PFW-10042',bc:'9400111899223344556600',cust:'Sarah Mitchell',
+   items:[{sku:'PFW-BLK-LGG-XS-001',desc:'High-Waist Legging - Black - XS',qty:1}],
+   reason:'Wrong Size',rma:'RMA-8821',rrid:'RR-44271',track:'9400111899223344556600',
+   date:'Apr 1',shipDate:'Feb 14, 2026',daysHeld:45,status:'arrived',val:68,
+   photo:'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=200&q=80'},
+
+  {id:'PFW-10039',bc:'9400111899223344557711',cust:'James Chen',
+   items:[{sku:'PFW-NVY-SPRT-M-002',desc:'Sport Shorts - Navy - M',qty:2}],
+   reason:'Defective',rma:'RMA-8819',rrid:'RR-44268',track:'9400111899223344557711',
+   date:'Apr 1',shipDate:'Jan 30, 2026',daysHeld:59,status:'pending',val:44,
+   photo:'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=200&q=80'},
+
+  {id:'PFW-10025',bc:'9400111899223344552255',cust:'Daniel Park',
+   items:[
+     {sku:'PFW-BLU-TANK-S-006',  desc:'Performance Tank - Blue - S',  qty:1},
+     {sku:'PFW-BLU-SHORT-S-006B',desc:'Matching Shorts - Blue - S',   qty:1},
+     {sku:'PFW-BLU-BRA-S-006C',  desc:'Sports Bra - Blue - S',        qty:1},
+   ],
+   reason:'Wrong Color',rma:'RMA-8805',rrid:'RR-44233',track:'9400111899223344552255',
+   date:'Mar 31',shipDate:'Feb 28, 2026',daysHeld:31,status:'flagged',val:36,
+   photo:'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&q=80'},
+
+  {id:'PFW-10031',bc:'9400111899223344559933',cust:'Marcus Thompson',
+   items:[{sku:'PFW-GRY-HOODIE-XL-004',desc:'Fitted Hoodie - Grey - XL',qty:1}],
+   reason:'Wrong Size',rma:'RMA-8811',rrid:'RR-44250',track:'9400111899223344559933',
+   date:'Mar 31',shipDate:'Jan 15, 2026',daysHeld:75,status:'processed',val:88,
+   photo:'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=200&q=80'},
+
+  {id:'PFW-10022',bc:'1Z999AA10123456784',cust:'Lisa Wang',
+   items:[{sku:'PFW-RED-SET-M-007',desc:'Matching Set - Red - M',qty:1}],
+   reason:'Wrong Size',rma:'RMA-8802',rrid:'RR-44219',track:'1Z999AA10123456784',
+   date:'Mar 30',shipDate:'Mar 1, 2026',daysHeld:29,status:'flagged',val:112,
+   photo:'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=200&q=80'},
+];
+
+let FLAGS=[
+  {type:'Damaged',oid:'PFW-10039',rrid:'RR-44268',cust:'James Chen',sku:'PFW-NVY-SPRT-M-002',desc:'Sport Shorts - Navy - M',expQty:2,rcvQty:2,missing:0,disp:'Damage Out — Dispose',notes:'Torn seam both units. Manufacturing defect.',days:59,date:'Apr 1',status:'open'},
+  {type:'Partial',oid:'PFW-10025',rrid:'RR-44233',cust:'Daniel Park',sku:'PFW-BLU-TANK-S-006',desc:'Performance Tank - Blue - S',expQty:3,rcvQty:1,missing:2,disp:'Hold',notes:'Only 1 of 3 units arrived. Customer contacted.',days:31,date:'Mar 31',status:'open'},
+  {type:'Wrong Product',oid:'PFW-10022',rrid:'RR-44219',cust:'Lisa Wang',sku:'PFW-RED-SET-M-007',desc:'Matching Set - Red - M',expQty:1,rcvQty:1,missing:0,disp:'Quarantine',notes:'Not a Paragonfitwear product.',days:29,date:'Mar 30',status:'open'},
+];
+
+const DAYS_HELD=[
+  {oid:'PFW-10042',cust:'Sarah Mitchell',sku:'PFW-BLK-LGG-XS-001',prod:'High-Waist Legging - Black - XS',ship:'Feb 14, 2026',rma:'Mar 28, 2026',days:42,reason:'Wrong Size',cond:'Good',outcome:'Restocked'},
+  {oid:'PFW-10039',cust:'James Chen',sku:'PFW-NVY-SPRT-M-002',prod:'Sport Shorts - Navy - M',ship:'Jan 30, 2026',rma:'Mar 29, 2026',days:58,reason:'Defective',cond:'Damaged',outcome:'Damage Out'},
+  {oid:'PFW-10035',cust:'Emily Rossi',sku:'PFW-WHT-CROP-S-003',prod:'Crop Top - White - S',ship:'Feb 20, 2026',rma:'Apr 1, 2026',days:40,reason:'Changed Mind',cond:'Good',outcome:'Restocked'},
+  {oid:'PFW-10031',cust:'Marcus Thompson',sku:'PFW-GRY-HOODIE-XL-004',prod:'Fitted Hoodie - Grey - XL',ship:'Jan 15, 2026',rma:'Mar 31, 2026',days:75,reason:'Wrong Size',cond:'Good',outcome:'Restocked'},
+  {oid:'PFW-10028',cust:'Priya Sharma',sku:'PFW-BLK-BRA-M-005',prod:'Sports Bra - Black - M',ship:'Feb 10, 2026',rma:'Mar 31, 2026',days:49,reason:'Damaged Ship',cond:'Damaged',outcome:'Damage Out'},
+  {oid:'PFW-10025',cust:'Daniel Park',sku:'PFW-BLU-TANK-S-006',prod:'Performance Tank - Blue - S',ship:'Feb 28, 2026',rma:'Mar 31, 2026',days:31,reason:'Wrong Color',cond:'Partial',outcome:'Hold'},
+  {oid:'PFW-10022',cust:'Lisa Wang',sku:'PFW-RED-SET-M-007',prod:'Matching Set - Red - M',ship:'Mar 1, 2026',rma:'Mar 30, 2026',days:29,reason:'Wrong Size',cond:'Wrong Item',outcome:'Quarantine'},
+  {oid:'PFW-10019',cust:'Robert Kim',sku:'PFW-GRN-LGNG-L-008',prod:'Legging - Olive - L',ship:'Jan 20, 2026',rma:'Mar 30, 2026',days:69,reason:'Defective',cond:'Not Received',outcome:'Investigate'},
+  {oid:'PFW-10015',cust:'Angela Torres',sku:'PFW-CRL-LGNG-M-009',prod:'Legging - Coral - M',ship:'Feb 5, 2026',rma:'Mar 28, 2026',days:51,reason:'Wrong Size',cond:'Good',outcome:'Restocked'},
+  {oid:'PFW-10011',cust:'David Liu',sku:'PFW-BLK-SET-S-010',prod:'Matching Set - Black - S',ship:'Jan 25, 2026',rma:'Mar 27, 2026',days:61,reason:'Changed Mind',cond:'Good',outcome:'Restocked'},
+];
+
+const BI_DATA=[
+  {prod:'High-Waist Legging (All Colors)',date:'Jan 10',promo:false,shipped:10000,returned:820,good:610,damaged:140,missing:70,avgDays:48,topReason:'Wrong Size',assess:'INVESTIGATE'},
+  {prod:'Sport Shorts — Spring Launch',date:'Jan 25',promo:true,shipped:5000,returned:620,good:400,damaged:180,missing:40,avgDays:52,topReason:'Defective',assess:'ACTION REQUIRED'},
+  {prod:'Crop Top Collection',date:'Feb 15',promo:false,shipped:3000,returned:180,good:165,damaged:10,missing:5,avgDays:38,topReason:'Changed Mind',assess:'HEALTHY'},
+  {prod:'Fitted Hoodie Drop',date:'Jan 12',promo:true,shipped:8000,returned:980,good:720,damaged:180,missing:80,avgDays:62,topReason:'Wrong Size',assess:'INVESTIGATE'},
+  {prod:'Sports Bra — New Fit Tech',date:'Feb 8',promo:true,shipped:4500,returned:810,good:510,damaged:260,missing:40,avgDays:46,topReason:'Defective',assess:'ACTION REQUIRED'},
+  {prod:'Performance Tank Q1',date:'Feb 25',promo:false,shipped:2500,returned:95,good:82,damaged:8,missing:5,avgDays:33,topReason:'Wrong Color',assess:'HEALTHY'},
+  {prod:'Valentine Matching Set',date:'Feb 1',promo:true,shipped:6000,returned:1050,good:780,damaged:200,missing:70,avgDays:55,topReason:'Wrong Size',assess:'MONITOR'},
+  {prod:'Olive Legging New Colorway',date:'Jan 18',promo:false,shipped:2000,returned:210,good:150,damaged:40,missing:20,avgDays:65,topReason:'Defective',assess:'INVESTIGATE'},
+];
+
+const DMG_CHECKS=['Torn / Ripped seam','Staining / Soiling','Odor / Smell','Missing tags','Wrong product','Shipping damage'];
+let cu=null,selU=null,curR=null,myCount=0,curPSku=null,emailList=['ops@paragonfitwear.com'];
+
+
+// ══════════════════════════════════════════════
+// RETURN RABBIT API — SERVER PROXY INTEGRATION
+// Token lives in server .env — never in browser
+// All calls go to /api/rr/* on our Express server
+// ══════════════════════════════════════════════
+
+let RR_CONFIG = {
+  baseUrl: '/api/rr',   // proxied through Express server
+  store: 'paragonfitwear',
+  connected: false,
+  lastSync: null,
+};
+
+const RR_ENDPOINTS = [
+  {method:'GET',  path:'/returns',              desc:'List all returns (paginated)',          used:'Return Queue & RR Feed'},
+  {method:'GET',  path:'/returns?tracking={n}', desc:'Look up by tracking / shipping barcode',used:'Scan & Process'},
+  {method:'GET',  path:'/returns/{id}',          desc:'Single return with full line items',   used:'Detail panel & photo'},
+  {method:'PATCH',path:'/returns/{id}',          desc:'Update return status',                 used:'Mark processed / damage out'},
+  {method:'GET',  path:'/products/{sku}',        desc:'Product details and variant images',   used:'Product photo auto-load'},
+  {method:'GET',  path:'/orders/{id}',           desc:'Shopify order with ship date',         used:'Days held calculation'},
+];
+
+// No auth header needed — server proxy adds Authorization: Token <RR_TOKEN>
+function getAuthHeaders(){
+  return {'Content-Type':'application/json'};
+}
+
+// ── SAVE / CONNECT ──────────────────────────────────
+function saveRRToken(){
+  const store = document.getElementById('rr-store')?.value.trim() || 'paragonfitwear';
+  RR_CONFIG.store = store;
+  toast('Connecting via server — testing…','s');
+  testRRConnection();
+}
+function onTokenInput(){ /* token lives server-side — no-op in browser */ }
+function toggleToken(){
+  const inp = document.getElementById('rr-token');
+  const btn = document.getElementById('tok-vis-btn');
+  if(!inp) return;
+  if(inp.type==='password'){ inp.type='text'; btn.textContent='Hide'; }
+  else { inp.type='password'; btn.textContent='Show'; }
+}
+
+// ── TEST CONNECTION ──────────────────────────────────
+async function testRRConnection(){
+  setRRStatus('testing');
+  try {
+    // 1. Check our Express server is running and RR_TOKEN is configured
+    const healthRes = await fetch('/api/health');
+    if(!healthRes.ok) throw new Error('ReturnHub server not reachable — is it running?');
+    const health = await healthRes.json();
+    if(!health.rrConfigured){
+      throw new Error('RR_TOKEN not in server .env — add it and restart');
+    }
+    // 2. Try a live call through the proxy
+    const rrRes = await fetch(`${RR_CONFIG.baseUrl}/returns?limit=1`, {
+      headers: getAuthHeaders(),
+    });
+    if(rrRes.ok){
+      RR_CONFIG.connected = true;
+      setRRStatus('connected');
+      toast('✓ Return Rabbit connected!','s');
+      addSyncLog('Connection test','success','Server proxy → Return Rabbit OK');
+      fetchRR();
+    } else {
+      const txt = await rrRes.text();
+      throw new Error(`Return Rabbit HTTP ${rrRes.status}: ${txt.substring(0,100)}`);
+    }
+  } catch(e){
+    RR_CONFIG.connected = false;
+    setRRStatus('error');
+    toast(`✗ ${e.message.substring(0,80)}`,'e');
+    addSyncLog('Connection test','error',e.message.substring(0,140));
+  }
+}
+
+// ── STATUS INDICATOR ────────────────────────────────
+function setRRStatus(state){
+  const dot    = document.getElementById('rr-sdot');
+  const txt    = document.getElementById('rr-status-txt');
+  const bdot   = document.getElementById('rr-banner-dot');
+  const btitle = document.getElementById('rr-banner-title');
+  const bsub   = document.getElementById('rr-banner-sub');
+  const banner = document.getElementById('rr-conn-banner');
+  const cfgs = {
+    connected:    {dot:'var(--G)',anim:true, txt:'Return Rabbit ✓',bg:'rgba(34,212,106,.08)', bdr:'rgba(34,212,106,.25)', bt:'Connected',           bs:'Live sync active — data flowing from returnrabbit.app'},
+    error:        {dot:'var(--R)',anim:false,txt:'RR Offline',      bg:'rgba(240,69,69,.08)',  bdr:'rgba(240,69,69,.25)',  bt:'Connection failed',   bs:'Check RR_TOKEN in server .env then restart'},
+    testing:      {dot:'var(--A)',anim:true, txt:'Connecting…',     bg:'rgba(245,166,35,.08)', bdr:'rgba(245,166,35,.25)', bt:'Testing…',            bs:'Connecting to Return Rabbit via server proxy'},
+    syncing:      {dot:'var(--B)',anim:true, txt:'Syncing…',        bg:'rgba(79,142,247,.08)', bdr:'rgba(79,142,247,.25)', bt:'Syncing',             bs:'Fetching latest RMAs from Return Rabbit'},
+    disconnected: {dot:'var(--tx3)',anim:false,txt:'Return Rabbit', bg:'rgba(74,82,112,.1)',   bdr:'var(--b2)',            bt:'Not connected',       bs:'Add RR_TOKEN to server .env and restart, then click Test Connection'},
+  };
+  const c = cfgs[state] || cfgs.disconnected;
+  if(dot){ dot.style.background=c.dot; dot.style.boxShadow=c.anim?`0 0 4px ${c.dot}`:'none'; dot.style.animation=c.anim?'bl 1.5s infinite':'none'; }
+  if(txt) txt.textContent=c.txt;
+  if(bdot) bdot.style.background=c.dot;
+  if(btitle) btitle.textContent=c.bt;
+  if(bsub)   bsub.textContent=c.bs;
+  if(banner){ banner.style.background=c.bg; banner.style.borderColor=c.bdr; }
+}
+
+// ── FULL SYNC — pull all returns from RR ────────────
+async function fetchRR(){
+  if(!RR_CONFIG.connected && RR_CONFIG.lastSync===null){
+    // Not yet connected — render mock data
+    rRR(); return;
+  }
+  setRRStatus('syncing');
+  try {
+    const params = new URLSearchParams({limit:100, page:1});
+    const res = await fetch(`${RR_CONFIG.baseUrl}/returns?${params}`,{
+      headers: getAuthHeaders(),
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const list = Array.isArray(data)?data:(data.results||data.data||data.returns||[]);
+    if(list.length > 0){
+      // Map and merge into RETURNS array
+      list.map(mapRRReturn).forEach(r=>{
+        const idx = RETURNS.findIndex(x=>x.track===r.track||x.id===r.id);
+        if(idx>=0) RETURNS[idx]=r; else RETURNS.unshift(r);
+      });
+      updateTopStats(list.length);
+    }
+    RR_CONFIG.lastSync = new Date();
+    setRRStatus('connected');
+    const lst = document.getElementById('last-sync-time');
+    if(lst) lst.textContent='Last sync: '+RR_CONFIG.lastSync.toLocaleTimeString();
+    addSyncLog('Full sync','success',`${list.length} RMAs loaded`);
+    rRR(); rQueue();
+    if(list.length > 0) toast(`↻ Synced ${list.length} RMAs from Return Rabbit`,'s');
+  } catch(e){
+    setRRStatus('error');
+    toast(`RR sync failed: ${e.message.substring(0,60)}`,'e');
+    addSyncLog('Full sync','error',e.message.substring(0,120));
+    rRR(); // render mock data as fallback
+  }
+}
+
+// ── MAP RR PAYLOAD → ReturnHub format ───────────────
+// Field names here match the most common RR API patterns.
+// If fields come in differently, adjust the fallback chain (||).
+function mapRRReturn(rma){
+  const lineItems = rma.line_items || rma.items || rma.return_items || rma.returnItems || [];
+  const items = lineItems.map(li=>({
+    sku:   li.sku || li.variant_sku || li.product_sku || '—',
+    desc:  li.title || li.product_title || li.variant_title || li.name || '—',
+    qty:   parseInt(li.quantity || li.qty || 1),
+    image: li.image_url || li.image || li.featured_image || li.product_image || '',
+    price: parseFloat(li.price || li.unit_price || 0),
+  }));
+  const shipRaw = rma.shopify_order?.fulfilled_at || rma.fulfilled_at || rma.shipped_at || rma.shipment_date || null;
+  const rmaRaw  = rma.created_at || rma.submitted_at || rma.rma_created_at || null;
+  let daysHeld = 0;
+  if(shipRaw && rmaRaw){
+    daysHeld = Math.max(0, Math.round((new Date(rmaRaw)-new Date(shipRaw))/86400000));
+  }
+  const statusMap={
+    open:'pending',approved:'pending',pending:'pending',
+    label_created:'pending',in_transit:'pending',
+    received:'arrived',arrived:'arrived',delivered:'arrived',
+    completed:'processed',refunded:'processed',closed:'processed',
+    rejected:'flagged',cancelled:'flagged',
+  };
+  const fmtDate = raw => raw ? new Date(raw).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+  return {
+    id:       rma.order_name || rma.order_number || `#${rma.order_id}` || rma.id || '—',
+    bc:       rma.tracking_number || rma.tracking || rma.return_label?.tracking_number || '',
+    cust:     rma.customer?.name || [rma.customer?.first_name,rma.customer?.last_name].filter(Boolean).join(' ') || rma.customer_name || rma.customer_email || '—',
+    items,
+    reason:   rma.reason || rma.return_reason || rma.exchange_reason || rma.reason_category || '—',
+    rma:      rma.rma_number || rma.name || `RMA-${String(rma.id).substring(0,8)}`,
+    rrid:     `RR-${rma.id}`,
+    track:    rma.tracking_number || rma.tracking || '—',
+    date:     fmtDate(rmaRaw),
+    shipDate: shipRaw ? fmtDate(shipRaw) : 'Not in RR',
+    daysHeld,
+    status:   statusMap[(rma.status||'').toLowerCase()] || 'pending',
+    val:      items.reduce((s,li)=>s+li.price,0),
+    photo:    items[0]?.image || '',
+    _raw:     rma,
+  };
+}
+
+// ── BARCODE SCAN — live lookup ───────────────────────
+async function procScanLive(code){
+  if(!code) return;
+  const z = document.getElementById('sz');
+  // 1. Local cache first (fast path)
+  const cached = RETURNS.find(x=>x.bc===code||x.bc.startsWith(code.substring(0,12))||x.id===code||x.rma===code);
+  if(cached){
+    curR=cached; z.className='sz found';
+    document.getElementById('stitle').textContent='✓ Return Found!';
+    document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
+    showDetail(cached); return;
+  }
+  // 2. Live RR lookup if connected
+  if(RR_CONFIG.connected){
+    document.getElementById('stitle').textContent='🔍 Looking up in Return Rabbit…';
+    document.getElementById('ssub').textContent='Querying returnrabbit.app for: '+code;
+    try {
+      const res = await fetch(`${RR_CONFIG.baseUrl}/returns?tracking=${encodeURIComponent(code)}`,{
+        headers:getAuthHeaders(),
+      });
+      if(res.ok){
+        const data = await res.json();
+        const list = Array.isArray(data)?data:(data.results||data.data||[]);
+        if(list.length>0){
+          const r = mapRRReturn(list[0]);
+          RETURNS.unshift(r);
+          curR=r; z.className='sz found';
+          document.getElementById('stitle').textContent='✓ Found in Return Rabbit!';
+          document.getElementById('ssub').textContent='Live data · check each item received';
+          showDetail(r);
+          addSyncLog('Barcode lookup','success',`Found ${r.id} via tracking ${code}`);
+          return;
+        }
+      }
+    } catch(e){ addSyncLog('Barcode lookup','error',e.message); }
+  }
+  // 3. Not found
+  z.className='sz err';
+  document.getElementById('stitle').textContent='✗ Not Found';
+  document.getElementById('ssub').textContent='No RMA matched for: '+code;
+  setTimeout(()=>{
+    z.className='sz';
+    document.getElementById('stitle').textContent='Ready to Scan';
+    document.getElementById('ssub').textContent='Point scanner at shipping label · click and type · F2 = demo scan';
+  },2400);
+}
+
+// ── PHOTO — live from RR then fallback ──────────────
+async function loadPhoto(){
+  if(!curR) return;
+  const img = document.getElementById('pimg');
+  const ph  = document.getElementById('pp-ph');
+  ph.innerHTML='<div style="font-size:11px;color:var(--tx3)">Loading…</div>';
+  // Try live photo from Return Rabbit detail endpoint
+  if(RR_CONFIG.connected && curR.rrid){
+    try {
+      const id = curR.rrid.replace('RR-','');
+      const res = await fetch(`${RR_CONFIG.baseUrl}/returns/${id}`,{headers:getAuthHeaders()});
+      if(res.ok){
+        const data = await res.json();
+        const li = (data.line_items||data.items||[])[0];
+        const url = li?.image_url||li?.image||li?.featured_image||'';
+        if(url){ img.src=url; img.onload=()=>{img.classList.add('ld');img.style.display='block';ph.style.display='none';}; img.onerror=()=>imgErr(img); return; }
+      }
+    } catch(e){ /* silent fail */ }
+  }
+  // Fallback to stored photo URL
+  if(curR.photo){ img.src=curR.photo; img.onload=()=>{img.classList.add('ld');img.style.display='block';ph.style.display='none';}; img.onerror=()=>imgErr(img); }
+  else imgErr(img);
+}
+function imgErr(img){ img.style.display='none'; document.getElementById('pp-ph').innerHTML='<div style="font-size:20px;margin-bottom:4px">❌</div><div style="font-size:10px;color:var(--tx3);text-align:center;line-height:1.4">Not available<br>Check Shopify</div>'; }
+function openShopify(){ if(!curR) return; toast('🛍 Opening Shopify product for '+curR.items[0].sku,'s'); }
+
+// ── ZPL LABEL GENERATION ────────────────────────────
+async function sendPrint(){
+  const p = printers.find(x=>x.id===document.getElementById('pp-sel').value);
+  if(!p){ toast('No printer selected','e'); return; }
+  if(!curPSku){ toast('No SKU selected','e'); return; }
+  const copies  = parseInt(document.getElementById('pp-copies').value)||1;
+  const size    = document.getElementById('pp-size').value;
+  const labelType = document.getElementById('pp-type').value;
+  const zpl = buildZPL(curPSku.sku, curPSku.desc, curPSku.orderId, copies, size);
+  try {
+    const res = await fetch('/api/print',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ip:p.ip, port:parseInt(p.port)||9100, zpl}),
+    });
+    const data = await res.json();
+    if(data.success){ toast(`🖨 ${copies}× sent to ${p.n} (${p.ip})`,'s'); cm('pmo'); }
+    else toast(`✗ Print error: ${data.error}`,'e');
+  } catch(e){
+    // Server not available — demo mode toast
+    toast(`🖨 Demo: ${copies}× → ${p.n} · ${p.ip}:${p.port} · ${size}`,'s');
+    cm('pmo');
+  }
+}
+
+function buildZPL(sku, desc, orderId, copies, size){
+  const dims = {
+    '2x1':{w:406,h:203}, '3x2':{w:609,h:406},
+    '4x2':{w:812,h:406}, '4x3':{w:812,h:609}, '4x6':{w:812,h:1218},
+  }[size] || {w:609,h:406};
+  const d = (desc||'').substring(0,38);
+  const o = (orderId||'').substring(0,20);
+  return `^XA\n^PW${dims.w}\n^LL${dims.h}\n^FO20,20^A0N,28,28^FDPARAGONFITWEAR^FS\n^FO20,60^BY2^BCN,60,Y,N,N^FD${sku}^FS\n^FO20,150^A0N,22,22^FD${sku}^FS\n^FO20,178^A0N,20,20^FD${d}^FS\n^FO20,205^A0N,18,18^FDORDER: ${o}^FS\n^PQ${copies}\n^XZ`;
+}
+
+// ── SYNC LOG ────────────────────────────────────────
+function addSyncLog(action, status, detail){
+  const el = document.getElementById('sync-log'); if(!el) return;
+  const color = status==='success'?'var(--G)':status==='error'?'var(--R)':'var(--A)';
+  const icon  = status==='success'?'✓':status==='error'?'✗':'⚑';
+  const entry = document.createElement('div');
+  entry.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--b);font-size:12px';
+  entry.innerHTML=`<span style="color:${color};font-weight:700;flex-shrink:0">${icon}</span><span style="color:var(--tx2);font-family:var(--fm);font-size:11px;flex-shrink:0">${new Date().toLocaleTimeString()}</span><span style="font-weight:500">${action}</span><span style="color:var(--tx2);flex:1;overflow:hidden;text-overflow:ellipsis">${detail}</span>`;
+  const ph = el.querySelector('[style*="text-align:center"]');
+  if(ph) ph.remove();
+  el.insertBefore(entry, el.firstChild);
+  while(el.children.length > 20) el.removeChild(el.lastChild);
+  const lst = document.getElementById('last-sync-time');
+  if(lst && RR_CONFIG.lastSync) lst.textContent='Last sync: '+RR_CONFIG.lastSync.toLocaleTimeString();
+}
+
+// ── ENDPOINT REFERENCE TABLE ─────────────────────────
+function renderEndpointList(){
+  const el = document.getElementById('endpoint-list'); if(!el) return;
+  el.innerHTML = RR_ENDPOINTS.map(e=>`
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--b)">
+      <span style="background:${e.method==='GET'?'rgba(34,212,106,.14)':'rgba(245,166,35,.14)'};color:${e.method==='GET'?'var(--G)':'var(--A)'};font-family:var(--fm);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;min-width:46px;text-align:center">${e.method}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--fm);font-size:12px;color:var(--Y);margin-bottom:2px">${e.path}</div>
+        <div style="font-size:12px;color:var(--tx2)">${e.desc}</div>
+      </div>
+      <span style="font-size:11px;color:var(--tx3);flex-shrink:0;text-align:right;max-width:140px">${e.used}</span>
+    </div>`).join('');
+}
+
+function updateTopStats(n){ const el=document.getElementById('s1'); if(el&&n>0) el.textContent=n; }
+
+// ── AUTO-SYNC TIMER ──────────────────────────────────
+let rrSyncTimer = null;
+function startAutoSync(){
+  if(rrSyncTimer) clearInterval(rrSyncTimer);
+  const s = parseInt(document.getElementById('rr-sync-interval')?.value||'60');
+  if(s>0 && RR_CONFIG.connected) rrSyncTimer = setInterval(fetchRR, s*1000);
+}
+
+// ══════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════
+function buildUCards(){
+  document.getElementById('ucards').innerHTML=USERS.map(u=>`
+    <div class="uc" onclick="selU2('${u.id}')">
+      <div class="ucav" style="background:${u.c}22;color:${u.c}">${u.i}</div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:1px">${u.n}</div>
+      <div style="font-size:10px;color:var(--tx3)">${u.role}</div>
+    </div>`).join('');
+}
+function selU2(id){selU=USERS.find(u=>u.id===id);document.getElementById('ucards').style.display='none';document.getElementById('pinsec').style.display='block';document.getElementById('pinlbl').innerHTML=`PIN for <strong style="color:var(--Y)">${selU.n}</strong>`;document.getElementById('pin').value='';document.getElementById('pin').focus();}
+function cancelLogin(){selU=null;document.getElementById('ucards').style.display='grid';document.getElementById('pinsec').style.display='none';}
+function doLogin(){
+  if(document.getElementById('pin').value===selU.pin){
+    cu=selU;document.getElementById('ls').style.display='none';document.getElementById('sb').style.display='flex';document.getElementById('app').style.display='flex';
+    document.getElementById('sav').textContent=cu.i;document.getElementById('sav').style.background=cu.c+'22';document.getElementById('sav').style.color=cu.c;
+    document.getElementById('sname').textContent=cu.n;document.getElementById('srole').textContent=cu.role;
+    initApp();toast('👋 Welcome, '+cu.n,'s');
+  }else{document.getElementById('pin').style.borderColor='var(--R)';document.getElementById('pin').value='';setTimeout(()=>document.getElementById('pin').style.borderColor='',1200);toast('Wrong PIN','e');}
+}
+document.getElementById('pin').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function logout(){cu=null;document.getElementById('ls').style.display='flex';document.getElementById('sb').style.display='none';document.getElementById('app').style.display='none';document.getElementById('ucards').style.display='grid';document.getElementById('pinsec').style.display='none';}
+
+// ══════════════════════════════════════════════
+// INIT / NAV
+// ══════════════════════════════════════════════
+function initApp(){updateClock();rQueue();rRR();rFlags();renderBilling();rPrinters();renderBI();renderDH();renderMerchants();renderUsers();renderEmailDisplay();popPSel();renderEndpointList();setRRStatus('disconnected');startAutoSync();}
+const TITLES={scan:'Scan & Process',rrsettings:'Return Rabbit Integration',queue:'Return Queue',rr:'Return Rabbit Feed',flags:'Discrepancy Report',bi:'Launch & Promo BI',dh:'Days Held Analysis',billing:'Billing & Invoices',email:'Email Reports',printers:'Printer Manager',merchants:'Merchants',users:'Users & Access'};
+function nav(id){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('tab-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');document.getElementById('ptitle').textContent=TITLES[id]||id;}
+function updateClock(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
+setInterval(updateClock,1000);
+
+// ══════════════════════════════════════════════
+// SCAN
+// ══════════════════════════════════════════════
+function onBK(e){if(e.key==='Enter')procScan(e.target.value.trim());}
+function onBI(i){clearTimeout(window._bc);if(i.value.length>8)window._bc=setTimeout(()=>procScan(i.value.trim()),270);}
+function demo1(){procScan('9400111899223344556600');}
+function demo2(){procScan('9400111899223344552255');}
+function demo3(){procScan('9400111899223344557711');}
+document.addEventListener('keydown',e=>{if(e.key==='F2'){const r=RETURNS[Math.floor(Math.random()*RETURNS.length)];procScan(r.bc);}});
+
+function procScan(code){ procScanLive(code); }
+
+function showDetail(r){
+  const sm={arrived:'bb',pending:'ba',flagged:'br',processed:'bg',damaged:'br'};
+  const st={arrived:'ARRIVED',pending:'PENDING',flagged:'FLAGGED',processed:'PROCESSED',damaged:'DAMAGED'};
+  const b=document.getElementById('rp-badge');
+  b.className='badge '+(sm[r.status]||'bgr');b.textContent=st[r.status]||r.status.toUpperCase();
+  document.getElementById('rp-oid').textContent=r.id;
+  document.getElementById('rp-cust').textContent=r.cust;
+  document.getElementById('rp-rma').textContent=r.rma;
+  document.getElementById('rp-reason').textContent=r.reason;
+  document.getElementById('rp-track').textContent=r.track;
+  document.getElementById('rp-ship').textContent=r.shipDate;
+  document.getElementById('rp-date').textContent=r.date;
+  document.getElementById('rp-rrid').textContent=r.rrid;
+
+  const dc=document.getElementById('dchip');
+  dc.className='dchip '+(r.daysHeld>60?'dr':r.daysHeld>30?'da':'dg2');
+  dc.textContent=r.daysHeld+'d held';
+
+  // Reset photo
+  const img=document.getElementById('pimg');img.style.display='none';img.classList.remove('ld');
+  const ph=document.getElementById('pp-ph');ph.style.display='flex';ph.style.flexDirection='column';ph.style.alignItems='center';
+
+  // Init item states — all start UNCHECKED
+  itemStates={};
+  r.items.forEach((item,idx)=>{
+    itemStates[idx]={state:'unchecked',rcvQty:item.qty,dmgChecks:[],dmgNotes:'',dmgDisp:'Damage Out — Dispose',wrongNotes:''};
+  });
+
+  buildChecklist(r);
+  updateProgress();
+  updateProcBtn();
+  document.getElementById('rp').classList.add('vis');
+}
+
+// ══════════════════════════════════════════════
+// ITEM CHECKLIST — core logic
+// ══════════════════════════════════════════════
+function buildChecklist(r){
+  const icl=document.getElementById('icl');
+  icl.innerHTML=r.items.map((item,idx)=>buildItemRow(item,idx,r.id)).join('');
+  r.items.forEach((item,idx)=>{
+    // wire up qty buttons
+    const minusBtn=document.getElementById(`pq-minus-${idx}`);
+    const plusBtn=document.getElementById(`pq-plus-${idx}`);
+    const numEl=document.getElementById(`pq-num-${idx}`);
+    if(minusBtn) minusBtn.addEventListener('click',()=>adjustQty(idx,item.qty,-1));
+    if(plusBtn)  plusBtn.addEventListener('click',()=>adjustQty(idx,item.qty,+1));
+    if(numEl)    numEl.addEventListener('change',()=>{const v=Math.max(0,Math.min(item.qty,parseInt(numEl.value)||0));itemStates[idx].rcvQty=v;numEl.value=v;updateMissingLabel(idx,item.qty);updateProgress();updateProcBtn();});
+  });
+}
+
+function buildItemRow(item,idx,orderId){
+  return`<div class="icr state-unchecked" id="icr-${idx}">
+    <div class="icr-main">
+      <div class="icr-check" id="ck-${idx}" onclick="toggleCheck(${idx},'${item.sku}',${item.qty})" title="Tap to mark received">
+        <span class="ck-icon" id="cki-${idx}">✕</span>
+      </div>
+      <div class="icr-bc">${mBc(item.sku)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="icr-sku">${item.sku}</div>
+        <div class="icr-desc">${item.desc}</div>
+      </div>
+      <div class="icr-qty" id="iqty-${idx}" title="Expected qty">${item.qty}</div>
+      <div class="icr-actions">
+        <button class="ia-btn ia-print" onclick="openPM('${item.sku}','${item.desc}','${orderId}',${item.qty})" title="Print bag label">🖨 Print</button>
+        <button class="ia-btn ia-partial" id="iap-${idx}" onclick="toggleSub(${idx},'partial',${item.qty})" title="Partial — enter qty received">⅟ Partial</button>
+        <button class="ia-btn ia-dmg"    id="iad-${idx}" onclick="toggleSub(${idx},'damaged',${item.qty})" title="Add damage notes">🗑 Damage</button>
+        <button class="ia-btn ia-wrong"  id="iaw-${idx}" onclick="toggleSub(${idx},'wrong',${item.qty})"   title="Wrong product received">❓ Wrong</button>
+      </div>
+    </div>
+    <!-- PARTIAL SUB-PANEL -->
+    <div class="icr-sub" id="sub-partial-${idx}">
+      <div class="pq-row">
+        <span class="pq-label">Expected:</span>
+        <span class="pq-expected">${item.qty}</span>
+        <span class="pq-arrow">→</span>
+        <span class="pq-label">Received:</span>
+        <div class="pq-input-wrap">
+          <button class="pq-btn" id="pq-minus-${idx}">−</button>
+          <input class="pq-num" type="number" id="pq-num-${idx}" value="${item.qty}" min="0" max="${item.qty}">
+          <button class="pq-btn" id="pq-plus-${idx}">+</button>
+        </div>
+        <span class="pq-missing-label" id="pq-miss-${idx}"></span>
+      </div>
+      <div class="fg" style="margin-bottom:0"><label class="fl" style="color:var(--A)">Notes about missing units</label><textarea class="fta" id="pq-notes-${idx}" placeholder="Describe what was in the package, how many pieces, any customer message…" style="min-height:65px;border-color:rgba(245,166,35,.3)"></textarea></div>
+    </div>
+    <!-- DAMAGE SUB-PANEL -->
+    <div class="icr-sub" id="sub-damaged-${idx}">
+      <div class="dmg-sub">
+        <div class="dmg-sub-title">🗑 Damage Report — Select all that apply</div>
+        <div class="dmg-checks">
+          ${DMG_CHECKS.map((c,ci)=>`<label class="dc"><input type="checkbox" id="dc-${idx}-${ci}" onchange="syncDmgState(${idx})"> ${c}</label>`).join('')}
+        </div>
+        <div class="fg"><label class="fl" style="color:var(--R)">Damage notes to Paragon</label><textarea class="fta" id="dmg-notes-${idx}" placeholder="Describe in detail — Paragon uses this for claims and QC…" style="min-height:75px;border-color:rgba(240,69,69,.3)" oninput="syncDmgState(${idx})"></textarea></div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">Disposition</label><select class="fsel" id="dmg-disp-${idx}" onchange="syncDmgState(${idx})"><option>Damage Out — Dispose</option><option>Hold for Review</option><option>Return to Customer</option><option>Quarantine</option></select></div>
+      </div>
+    </div>
+    <!-- WRONG PRODUCT SUB-PANEL -->
+    <div class="icr-sub" id="sub-wrong-${idx}">
+      <div class="wrong-sub">
+        <div class="wrong-sub-title">❓ Wrong Product — Describe what was actually received</div>
+        <div class="fg"><label class="fl" style="color:var(--P)">Notes about wrong item</label><textarea class="fta" id="wrong-notes-${idx}" placeholder="What product was actually in the bag? Brand, description, tags present? Item held in quarantine." style="min-height:75px;border-color:rgba(155,111,247,.3)" oninput="syncWrongState(${idx})"></textarea></div>
+        <div style="background:rgba(155,111,247,.08);border-radius:var(--r);padding:9px;font-size:12px;color:var(--P)">⚠ Item will be flagged as WRONG PRODUCT and held in quarantine until Paragon advises on disposition.</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleCheck(idx,sku,qty){
+  const st=itemStates[idx];
+  // cycle: unchecked → checked → unchecked
+  if(st.state==='unchecked'||st.state==='partial'||st.state==='damaged'||st.state==='wrong'){
+    // mark checked — close any open sub-panels
+    setItemState(idx,'checked',qty);
+    closeSubs(idx);
+  } else {
+    setItemState(idx,'unchecked',qty);
+  }
+  updateProgress();updateProcBtn();
+}
+
+function setItemState(idx,state,qty){
+  const s=itemStates[idx];
+  s.state=state;
+  if(state==='checked') s.rcvQty=qty;
+  if(state==='unchecked') s.rcvQty=qty;
+  const row=document.getElementById('icr-'+idx);
+  const ck=document.getElementById('ck-'+idx);
+  const ki=document.getElementById('cki-'+idx);
+  const qt=document.getElementById('iqty-'+idx);
+  // remove all state classes
+  row.className='icr state-'+state;
+  const icons={checked:'✓',unchecked:'✕',partial:'⅟',damaged:'🗑',wrong:'❓'};
+  ki.textContent=icons[state]||'✕';
+  // update qty display
+  if(state==='partial'){qt.className='icr-qty';qt.style.color='var(--A)';}
+  else if(state==='checked'){qt.className='icr-qty';qt.style.color='var(--G)';}
+  else if(state==='damaged'||state==='wrong'){qt.className='icr-qty';qt.style.color='var(--R)';}
+  else{qt.className='icr-qty';qt.style.color='';}
+}
+
+function toggleSub(idx,type,qty){
+  const subEl=document.getElementById(`sub-${type}-${idx}`);
+  const btnEl=document.getElementById(`ia${type[0]}-${idx}`);
+  const isOpen=subEl.classList.contains('vis');
+  // close all subs for this item
+  closeSubs(idx);
+  if(!isOpen){
+    subEl.classList.add('vis');
+    btnEl && btnEl.classList.add('on');
+    // set state to this type (unless checked)
+    const currentState=itemStates[idx].state;
+    if(currentState!=='checked') setItemState(idx,type,qty);
+    // if damage — uncheck so it's not marked received clean
+    if(type==='damaged') setItemState(idx,'damaged',qty);
+    if(type==='wrong')   setItemState(idx,'wrong',qty);
+    if(type==='partial') setItemState(idx,'partial',qty);
+    updateProgress();updateProcBtn();
+  }
+}
+
+function closeSubs(idx){
+  ['partial','damaged','wrong'].forEach(type=>{
+    document.getElementById(`sub-${type}-${idx}`)?.classList.remove('vis');
+    document.getElementById(`ia${type[0]}-${idx}`)?.classList.remove('on');
+  });
+}
+
+function adjustQty(idx,maxQty,delta){
+  const s=itemStates[idx];
+  const inp=document.getElementById(`pq-num-${idx}`);
+  const newVal=Math.max(0,Math.min(maxQty,(s.rcvQty||0)+delta));
+  s.rcvQty=newVal;
+  inp.value=newVal;
+  updateMissingLabel(idx,maxQty);
+  if(newVal===maxQty){setItemState(idx,'checked',maxQty);}
+  else if(newVal===0){setItemState(idx,'unchecked',maxQty);}
+  else{setItemState(idx,'partial',maxQty);}
+  updateProgress();updateProcBtn();
+}
+
+function updateMissingLabel(idx,maxQty){
+  const s=itemStates[idx];
+  const miss=maxQty-(s.rcvQty||0);
+  const el=document.getElementById(`pq-miss-${idx}`);
+  if(!el)return;
+  if(miss>0){el.textContent=`${miss} MISSING`;el.style.color='var(--R)';}
+  else{el.textContent='All present';el.style.color='var(--G)';}
+}
+
+function syncDmgState(idx){
+  const s=itemStates[idx];
+  s.dmgChecks=DMG_CHECKS.filter((_,ci)=>document.getElementById(`dc-${idx}-${ci}`)?.checked).map((_,ci)=>DMG_CHECKS[ci]).filter(Boolean);
+  s.dmgNotes=document.getElementById(`dmg-notes-${idx}`)?.value||'';
+  s.dmgDisp=document.getElementById(`dmg-disp-${idx}`)?.value||'Damage Out — Dispose';
+}
+function syncWrongState(idx){
+  itemStates[idx].wrongNotes=document.getElementById(`wrong-notes-${idx}`)?.value||'';
+}
+
+function checkAll(val){
+  if(!curR)return;
+  curR.items.forEach((item,idx)=>{
+    closeSubs(idx);
+    setItemState(idx,val?'checked':'unchecked',item.qty);
+    if(val) itemStates[idx].rcvQty=item.qty;
+  });
+  updateProgress();updateProcBtn();
+}
+
+function updateProgress(){
+  if(!curR)return;
+  // damaged and wrong = physically received, just flagged — count them as in-hand
+  const inHand=curR.items.filter((_,i)=>['checked','damaged','wrong','partial'].includes(itemStates[i]?.state)).length;
+  document.getElementById('chk-count').textContent=inHand;
+  document.getElementById('chk-total').textContent=` / ${curR.items.length} in package`;
+}
+
+function updateProcBtn(){
+  if(!curR)return;
+  const states=curR.items.map((_,i)=>itemStates[i]?.state);
+  // "all clear" = everything is checked (clean received) OR damaged/wrong (received with flag)
+  // damaged and wrong DO NOT count as missing — the item was in the box
+  const allAccountedFor=states.every(s=>['checked','damaged','wrong'].includes(s));
+  const hasAnyFlag=states.some(s=>s!=='checked');
+  const btn=document.getElementById('proc-btn');
+  const txt=document.getElementById('proc-btn-txt');
+  const hint=document.getElementById('proc-hint');
+  if(!hasAnyFlag){
+    // everything clean — green button
+    btn.className='btn bG lg';btn.style.flex='1';
+    txt.textContent='✓ All Items Confirmed — Process Return';
+    hint.textContent='';
+  } else if(allAccountedFor){
+    // all items physically here, but some have damage/wrong flags — amber-ish
+    btn.className='btn bA lg';btn.style.flex='1';
+    const damaged=states.filter(s=>s==='damaged').length;
+    const wrong=states.filter(s=>s==='wrong').length;
+    const parts=[];
+    if(damaged) parts.push(`${damaged} damaged`);
+    if(wrong)   parts.push(`${wrong} wrong item`);
+    txt.textContent='⚑ All received — flags: '+parts.join(', ');
+    hint.textContent='Will log to Paragon report';
+  } else {
+    // some items truly missing or partial
+    btn.className='btn bA lg';btn.style.flex='1';
+    const unchecked=states.filter(s=>s==='unchecked').length;
+    const partial=states.filter(s=>s==='partial').length;
+    const damaged=states.filter(s=>s==='damaged').length;
+    const wrong=states.filter(s=>s==='wrong').length;
+    const parts=[];
+    if(unchecked) parts.push(`${unchecked} not returned`);
+    if(partial)   parts.push(`${partial} partial`);
+    if(damaged)   parts.push(`${damaged} damaged`);
+    if(wrong)     parts.push(`${wrong} wrong item`);
+    txt.textContent='⚑ Process with flags: '+parts.join(', ');
+    hint.textContent='Will prompt confirmation';
+  }
+}
+
+// ══════════════════════════════════════════════
+// PROCESS / CONFIRM FLOW
+// ══════════════════════════════════════════════
+function tryProcess(){
+  if(!curR)return;
+  const states=curR.items.map((_,i)=>itemStates[i]?.state);
+  // damaged and wrong = item was physically received — no missing-item confirmation needed
+  // Only unchecked (not returned) or partial (some missing) need the confirm step
+  const hasMissingItems=states.some(s=>s==='unchecked'||s==='partial');
+  const hasDamageFlags=states.some(s=>s==='damaged'||s==='wrong');
+  if(hasMissingItems){
+    // Show confirm modal — worker needs to acknowledge items weren't received
+    openConfirmModal();
+  } else if(hasDamageFlags){
+    // Items all physically present — just log damage flags and process directly
+    // No "are you sure?" needed — worker already entered the damage notes
+    confirmAndProcess();
+  } else {
+    finalizeProcess();
+  }
+}
+
+function openConfirmModal(){
+  const summary=document.getElementById('confirm-summary');
+
+  // Correctly categorise each item:
+  // damaged / wrong  = RECEIVED but flagged  (rcvQty = full qty, missing = 0)
+  // unchecked        = NOT RECEIVED at all    (rcvQty = 0, missing = full qty)
+  // partial          = partially received     (rcvQty = entered value, missing = remainder)
+  // checked          = fully received, clean  (rcvQty = full qty, missing = 0)
+
+  const stateLabels={
+    checked:   'Received ✓',
+    unchecked: 'NOT RETURNED ✕',
+    partial:   'Partial Return',
+    damaged:   'Received — Damaged 🗑',
+    wrong:     'Received — Wrong Product ❓',
+  };
+  const stateBadge={
+    checked:'bg', unchecked:'br', partial:'ba', damaged:'br', wrong:'bp',
+  };
+  const stateDot={
+    checked:'var(--G)', unchecked:'var(--R)', partial:'var(--A)',
+    damaged:'var(--R)', wrong:'var(--P)',
+  };
+  const stateQtyColor={
+    checked:'var(--G)', unchecked:'var(--R)', partial:'var(--A)',
+    damaged:'var(--R)', wrong:'var(--P)',
+  };
+
+  // Separate into two groups for clarity
+  const receivedWithIssues=curR.items.filter((_,i)=>['damaged','wrong'].includes(itemStates[i].state));
+  const notReceived=curR.items.filter((_,i)=>['unchecked','partial'].includes(itemStates[i].state));
+  const allItems=curR.items;
+
+  let html='';
+
+  // Section header: items that ARE received but have issues
+  if(receivedWithIssues.length>0){
+    html+=`<div style="padding:8px 12px;background:rgba(240,69,69,.08);font-size:10px;font-weight:700;color:var(--R);text-transform:uppercase;letter-spacing:.6px;font-family:var(--fm);border-bottom:1px solid var(--b2)">Received — Flagged Issues (${receivedWithIssues.length})</div>`;
+  }
+
+  allItems.forEach((item,idx)=>{
+    const s=itemStates[idx];
+    if(!['damaged','wrong'].includes(s.state)) return;
+
+    // These items WERE received — full qty, zero missing
+    const rcv=item.qty;
+    const subNote=s.state==='damaged'
+      ? (s.dmgChecks.length?s.dmgChecks.join(', '):'')+(s.dmgNotes?' · '+s.dmgNotes.substring(0,70):'')
+      : s.wrongNotes.substring(0,80);
+
+    html+=`<div class="ci-row ${s.state}" style="background:${s.state==='damaged'?'rgba(240,69,69,.05)':'rgba(155,111,247,.05)'}">
+      <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${stateDot[s.state]}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--fm);font-size:11px;color:var(--Y);margin-bottom:1px">${item.sku}</div>
+        <div style="font-size:12px;color:var(--tx2)">${item.desc}</div>
+        ${subNote?`<div style="font-size:11px;color:${stateDot[s.state]};margin-top:3px;opacity:.85">${subNote}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:10px">
+        <div style="font-family:var(--fm);font-size:12px;font-weight:700;color:${stateQtyColor[s.state]}">${rcv}/${item.qty} rcvd</div>
+        <div style="font-size:10px;color:var(--G);font-family:var(--fm);">0 missing</div>
+        <span class="badge ${stateBadge[s.state]}" style="font-size:9px;margin-top:2px">${stateLabels[s.state]}</span>
+      </div>
+    </div>`;
+  });
+
+  // Section header: items NOT received
+  if(notReceived.length>0){
+    html+=`<div style="padding:8px 12px;background:rgba(245,166,35,.08);font-size:10px;font-weight:700;color:var(--A);text-transform:uppercase;letter-spacing:.6px;font-family:var(--fm);border-bottom:1px solid var(--b2);border-top:1px solid var(--b2)">Not Received / Missing (${notReceived.length})</div>`;
+  }
+
+  allItems.forEach((item,idx)=>{
+    const s=itemStates[idx];
+    if(!['unchecked','partial'].includes(s.state)) return;
+
+    const rcv=s.state==='partial'?(s.rcvQty||0):0;
+    const miss=item.qty-rcv;
+
+    html+=`<div class="ci-row ${s.state==='unchecked'?'not-returned':'partial'}">
+      <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${stateDot[s.state]}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--fm);font-size:11px;color:var(--Y);margin-bottom:1px">${item.sku}</div>
+        <div style="font-size:12px;color:var(--tx2)">${item.desc}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:10px">
+        <div style="font-family:var(--fm);font-size:12px;font-weight:700;color:${stateQtyColor[s.state]}">${rcv}/${item.qty} rcvd</div>
+        <div style="font-size:10px;color:var(--R);font-family:var(--fm);font-weight:700">${miss} MISSING</div>
+        <span class="badge ${stateBadge[s.state]}" style="font-size:9px;margin-top:2px">${stateLabels[s.state]}</span>
+      </div>
+    </div>`;
+  });
+
+  // Clean items — no section header needed, just show them quietly
+  allItems.forEach((item,idx)=>{
+    const s=itemStates[idx];
+    if(s.state!=='checked') return;
+    html+=`<div class="ci-row checked">
+      <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--G)"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--fm);font-size:11px;color:var(--Y);margin-bottom:1px">${item.sku}</div>
+        <div style="font-size:12px;color:var(--tx2)">${item.desc}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:10px">
+        <div style="font-family:var(--fm);font-size:12px;font-weight:700;color:var(--G)">${item.qty}/${item.qty} rcvd</div>
+        <span class="badge bg" style="font-size:9px;margin-top:2px">Received ✓</span>
+      </div>
+    </div>`;
+  });
+
+  summary.innerHTML=html;
+
+  // Warning text — only mention truly missing items, not damaged ones
+  const missingCount=notReceived.length;
+  const flaggedCount=receivedWithIssues.length;
+  const parts=[];
+  if(missingCount>0) parts.push(`${missingCount} item(s) NOT received — will be flagged as missing`);
+  if(flaggedCount>0) parts.push(`${flaggedCount} item(s) received but flagged with issues (damaged / wrong product)`);
+  document.getElementById('confirm-warning').textContent=parts.join(' · ')+'. Notes below apply to missing items.';
+  document.getElementById('confirm-notes').value='';
+  document.getElementById('confirm-modal').classList.add('open');
+}
+
+function cancelConfirm(){document.getElementById('confirm-modal').classList.remove('open');}
+
+function confirmAndProcess(){
+  // Notes from the confirm modal only apply to missing/partial items
+  const missingNotes=document.getElementById('confirm-notes')?.value.trim()||'Logged during return processing.';
+
+  curR.items.forEach((item,idx)=>{
+    const s=itemStates[idx];
+
+    if(s.state==='unchecked'){
+      // Item NOT received at all — missing = full qty
+      FLAGS.push({
+        type:'Not Returned',
+        oid:curR.id,rrid:curR.rrid,cust:curR.cust,
+        sku:item.sku,desc:item.desc,
+        expQty:item.qty,rcvQty:0,missing:item.qty,
+        disp:'Hold — Awaiting Resolution',
+        notes:`Item NOT received in return package. ${missingNotes} Logged by ${cu.n}.`,
+        days:curR.daysHeld,date:'Today',status:'open'
+      });
+
+    } else if(s.state==='partial'){
+      // Partially received — some units missing
+      const rcv=s.rcvQty||0;
+      const miss=item.qty-rcv;
+      FLAGS.push({
+        type:'Partial Return',
+        oid:curR.id,rrid:curR.rrid,cust:curR.cust,
+        sku:item.sku,desc:item.desc,
+        expQty:item.qty,rcvQty:rcv,missing:miss,
+        disp:'Hold — Awaiting Resolution',
+        notes:`Partial return: ${rcv} of ${item.qty} units received, ${miss} missing. ${missingNotes} Logged by ${cu.n}.`,
+        days:curR.daysHeld,date:'Today',status:'open'
+      });
+
+    } else if(s.state==='damaged'){
+      // Item WAS received — damaged condition. rcvQty = full qty, missing = 0
+      const checks=s.dmgChecks.length?s.dmgChecks.join(', ')+'. ':'';
+      FLAGS.push({
+        type:'Damaged',
+        oid:curR.id,rrid:curR.rrid,cust:curR.cust,
+        sku:item.sku,desc:item.desc,
+        expQty:item.qty,rcvQty:item.qty,missing:0,
+        disp:s.dmgDisp||'Damage Out — Dispose',
+        notes:`${checks}${s.dmgNotes||'No additional notes.'} Logged by ${cu.n}.`,
+        days:curR.daysHeld,date:'Today',status:'open'
+      });
+
+    } else if(s.state==='wrong'){
+      // Item WAS received — but it's the wrong product. rcvQty = full qty, missing = 0
+      FLAGS.push({
+        type:'Wrong Product',
+        oid:curR.id,rrid:curR.rrid,cust:curR.cust,
+        sku:item.sku,desc:item.desc,
+        expQty:item.qty,rcvQty:item.qty,missing:0,
+        disp:'Quarantine',
+        notes:`Wrong product received. ${s.wrongNotes||'No description.'} Logged by ${cu.n}.`,
+        days:curR.daysHeld,date:'Today',status:'open'
+      });
+    }
+    // state==='checked' = clean receipt, no flag needed
+  });
+
+  document.getElementById('confirm-modal').classList.remove('open');
+  rFlags();
+
+  const flagCount=curR.items.filter((_,i)=>itemStates[i].state!=='checked').length;
+  if(flagCount>0){
+    toast(`⚑ ${flagCount} flag(s) logged for Paragon discrepancy report`,'w');
+  }
+  finalizeProcess();
+}
+
+function finalizeProcess(){
+  myCount++;
+  document.getElementById('s2').textContent=parseInt(document.getElementById('s2').textContent)+1;
+  document.getElementById('s3').textContent=Math.max(0,parseInt(document.getElementById('s3').textContent)-1);
+  document.getElementById('s5').textContent=myCount;
+  toast('✓ '+curR.id+' processed & validated','s');
+  clearScan();
+}
+
+function clearScan(){
+  curR=null;itemStates={};
+  document.getElementById('rp').classList.remove('vis');
+  document.getElementById('sz').className='sz';
+  document.getElementById('stitle').textContent='Ready to Scan';
+  document.getElementById('ssub').textContent='Point scanner at shipping label · click and type · F2 = demo scan';
+  document.getElementById('bc').value='';document.getElementById('bc').focus();
+}
+
+// ══════════════════════════════════════════════
+// PHOTO
+// ══════════════════════════════════════════════
+function loadPhoto(){
+  if(!curR)return;
+  const img=document.getElementById('pimg');
+  const ph=document.getElementById('pp-ph');
+  ph.innerHTML='<div style="font-size:11px;color:var(--tx3)">Loading…</div>';
+  img.onload=()=>{img.classList.add('ld');img.style.display='block';ph.style.display='none';};
+  img.onerror=()=>imgErr(img);
+  img.src=curR.photo;
+}
+/* replaced by RR integration layer */
+/* replaced by RR integration layer */
+
+// BARCODE PREVIEW
+function mBc(sku){return sku.split('').map((c,i)=>{const w=c.charCodeAt(0)%3===0?3:1.5;const h=9+c.charCodeAt(0)%14;return`<div class="icr-bar" style="width:${w}px;height:${h}px;background:${i%2===0?'var(--tx2)':'transparent'}"></div>`;}).join('');}
+
+// ══════════════════════════════════════════════
+// PRINT
+// ══════════════════════════════════════════════
+function openPM(sku,desc,orderId,qty){
+  curPSku={sku,desc,orderId,qty};popPSel();
+  document.getElementById('lp-sku').textContent=sku;
+  document.getElementById('lp-desc').textContent=desc;
+  document.getElementById('lp-ord').textContent='ORDER: '+orderId+' · QTY: '+qty+' · PARAGONFITWEAR';
+  buildLpBc(sku);om('pmo');
+}
+function buildLpBc(sku){
+  const c=document.getElementById('lp-bc');c.innerHTML='';
+  sku.split('').forEach((ch,i)=>{
+    const w=ch.charCodeAt(0)%3===0?3.5:2;
+    const d=document.createElement('div');
+    d.style.cssText=`width:${w}px;height:100%;background:${i%2===0?'#000':'white'}`;
+    c.appendChild(d);
+    if(i%2===0){const s=document.createElement('div');s.style.cssText=`width:${ch.charCodeAt(0)%2===0?2:1}px;height:100%;background:white`;c.appendChild(s);}
+  });
+}
+function sendPrint(){
+  const p=printers.find(x=>x.id===document.getElementById('pp-sel').value);
+  if(!p){toast('No printer selected','e');return;}
+  toast(`🖨 ${document.getElementById('pp-copies').value}× → ${p.n} · ${p.ip}:${p.port} · ${document.getElementById('pp-size').value}`,'s');
+  cm('pmo');
+}
+
+// ══════════════════════════════════════════════
+// PRINTERS
+// ══════════════════════════════════════════════
+function rPrinters(){
+  const el=document.getElementById('plist');if(!el)return;
+  el.innerHTML=printers.map(p=>`
+    <div style="background:var(--bg3);border:1px solid ${p.def?'rgba(232,255,71,.4)':'var(--b)'};border-radius:var(--rl);padding:13px;display:flex;align-items:center;gap:11px;margin-bottom:8px">
+      <div style="width:40px;height:40px;border-radius:var(--r);background:${p.online?'rgba(34,212,106,.12)':'rgba(240,69,69,.1)'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${p.online?'🟢':'🔴'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;margin-bottom:2px">${p.n} ${p.def?'<span class="badge by" style="font-size:9px">DEFAULT</span>':''}</div>
+        <div style="font-family:var(--fm);font-size:11px;color:var(--tx3);margin-bottom:2px">${p.ip}:${p.port} · ${p.lang} · ${p.size}</div>
+        <div style="font-size:12px;color:var(--tx2)">${p.loc} · <span style="color:${p.online?'var(--G)':'var(--R)'}">${p.online?'Online':'Offline'}</span></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        ${!p.def?`<button class="btn bs sm" onclick="setDef('${p.id}')">Default</button>`:''}
+        <button class="btn bs sm" onclick="toast('Testing ${p.ip}… OK','s')">Test</button>
+        <button class="btn bR sm" onclick="remP('${p.id}')">Remove</button>
+      </div>
+    </div>`).join('');
+}
+function setDef(id){printers.forEach(p=>p.def=p.id===id);rPrinters();popPSel();toast('Default printer updated','s');}
+function remP(id){if(confirm('Remove?')){printers=printers.filter(p=>p.id!==id);rPrinters();toast('Printer removed','e');}}
+function testPC(){toast('Testing '+document.getElementById('np-ip').value+'… OK','s');}
+function saveP(){
+  const n=document.getElementById('np-name').value.trim(),ip=document.getElementById('np-ip').value.trim();
+  if(!n||!ip){toast('Name and IP required','e');return;}
+  printers.push({id:'p'+Date.now(),n,ip,port:document.getElementById('np-port').value||'9100',brand:document.getElementById('np-brand').value,lang:document.getElementById('np-lang').value,size:document.getElementById('np-size').value,loc:document.getElementById('np-loc').value||'Unspecified',def:printers.length===0,online:true});
+  cm('apm');rPrinters();popPSel();toast('Printer "'+n+'" added','s');
+  ['np-name','np-ip','np-loc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+}
+function popPSel(){
+  const s=document.getElementById('pp-sel');if(!s)return;
+  s.innerHTML=printers.map(p=>`<option value="${p.id}">${p.n} (${p.ip})</option>`).join('');
+  const d=printers.find(p=>p.def);if(d)s.value=d.id;
+}
+
+// ══════════════════════════════════════════════
+// QUEUE
+// ══════════════════════════════════════════════
+function rQueue(f='all'){
+  const tb=document.getElementById('qtbody');if(!tb)return;
+  const sm={arrived:'bb',pending:'ba',flagged:'br',processed:'bg',damaged:'br'};
+  const st={arrived:'ARRIVED',pending:'PENDING',flagged:'FLAGGED',processed:'PROCESSED',damaged:'DAMAGED'};
+  let data=f==='all'?RETURNS:RETURNS.filter(r=>f==='flagged'?['flagged','damaged'].includes(r.status):r.status===f);
+  const flagSet=new Set(FLAGS.map(x=>x.oid));
+  tb.innerHTML=data.map(r=>`<tr>
+    <td><span class="badge ${sm[r.status]||'bgr'}">${st[r.status]||r.status}</span></td>
+    <td class="mono">${r.id}</td><td style="font-size:12px">${r.cust}</td>
+    <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${r.items.map(i=>i.sku).join('<br>')}</td>
+    <td style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.items.map(i=>i.desc).join(', ')}</td>
+    <td style="text-align:center;font-family:var(--fm)">${r.items.reduce((s,i)=>s+i.qty,0)}</td>
+    <td style="text-align:center;font-family:var(--fm)">${r.items.reduce((s,i)=>s+i.qty,0)}</td>
+    <td style="text-align:center;font-family:var(--fm);color:var(--R);font-weight:700">—</td>
+    <td style="font-size:11px">${r.shipDate}</td>
+    <td><span class="dchip ${r.daysHeld>60?'dr':r.daysHeld>30?'da':'dg2'}">${r.daysHeld}d</span></td>
+    <td>${condBadge(r.items[0]?.qty>0?'Good':'Good')}</td>
+    <td class="mono">${r.rma}</td>
+    <td style="font-family:var(--fm);font-size:10px;color:var(--T)">${r.rrid}</td>
+    <td style="font-size:11px;color:var(--tx2)">${r.date}</td>
+    <td>${r.status!=='processed'?`<button class="btn bs sm" onclick="qGo('${r.bc}')">Process →</button>`:'<span style="color:var(--tx3);font-size:11px">Done</span>'}</td>
+  </tr>`).join('');
+}
+function fQ(f,btn){document.querySelectorAll('#qf .btn').forEach(b=>{b.style.borderColor='';b.style.color='';});btn.style.borderColor='var(--Y)';btn.style.color='var(--Y)';rQueue(f);}
+function qGo(bc){nav('scan');setTimeout(()=>{procScan(bc);},80);}
+function condBadge(c){const m={'Good':'<span class="badge bg">Good</span>','Damaged':'<span class="badge br">Damaged</span>','Partial':'<span class="badge ba">Partial</span>','Wrong Item':'<span class="badge bp">Wrong Item</span>','Not Received':'<span class="badge ba">Not Received</span>'};return m[c]||`<span class="badge bgr">${c}</span>`;}
+
+// ══════════════════════════════════════════════
+// RETURN RABBIT
+// ══════════════════════════════════════════════
+function rRR(){
+  const tb=document.getElementById('rrtbody');if(!tb)return;
+  const sm={arrived:'bb',pending:'ba',flagged:'br',processed:'bg'};
+  const st={arrived:'ARRIVED',pending:'PENDING',flagged:'FLAGGED',processed:'PROCESSED'};
+  tb.innerHTML=RETURNS.map(r=>`<tr>
+    <td style="font-family:var(--fm);color:var(--T);font-size:10px">${r.rrid}</td>
+    <td class="mono">${r.id}</td>
+    <td style="font-size:12px">${r.cust}</td>
+    <td><div style="width:34px;height:34px;border-radius:6px;overflow:hidden;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer" onclick="toast('📷 Load photo in Scan panel','s')">📷</div></td>
+    <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${r.items[0].sku}</td>
+    <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.items[0].desc}</td>
+    <td style="text-align:center;font-family:var(--fm)">${r.items.reduce((s,i)=>s+i.qty,0)}</td>
+    <td style="color:var(--G);font-weight:600">$${r.val}</td>
+    <td style="font-size:11px">${r.shipDate}</td>
+    <td><span class="dchip ${r.daysHeld>60?'dr':r.daysHeld>30?'da':'dg2'}">${r.daysHeld}d</span></td>
+    <td style="font-size:11px">${r.reason}</td>
+    <td><span class="badge ${sm[r.status]||'bgr'}">${st[r.status]||r.status}</span></td>
+    <td><button class="btn bs sm" onclick="qGo('${r.bc}')">Process</button></td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// FLAGS / DISCREPANCY
+// ══════════════════════════════════════════════
+function rFlags(){
+  const tb=document.getElementById('ftbody');if(!tb)return;
+  const open=FLAGS.filter(f=>f.status==='open').length;
+  document.getElementById('fct').textContent=open;
+  document.getElementById('flag-badge').textContent=open+' OPEN';
+  document.getElementById('s4').textContent=FLAGS.length;
+  document.getElementById('fl-t').textContent=FLAGS.length;
+  document.getElementById('fl-p').textContent=FLAGS.filter(f=>f.type==='Partial Return'||f.type==='Not Returned').length;
+  document.getElementById('fl-w').textContent=FLAGS.filter(f=>f.type==='Wrong Product').length;
+  document.getElementById('fl-d').textContent=FLAGS.filter(f=>f.type==='Damaged').length;
+  const tc={'Damaged':'br','Partial Return':'ba','Not Returned':'br','Wrong Product':'bp'};
+  tb.innerHTML=FLAGS.map(f=>`<tr>
+    <td><span class="badge ${tc[f.type]||'bgr'}">${f.type.toUpperCase()}</span></td>
+    <td class="mono">${f.oid}</td>
+    <td style="font-family:var(--fm);font-size:10px;color:var(--T)">${f.rrid||'—'}</td>
+    <td style="font-size:12px">${f.cust}</td>
+    <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${f.sku}</td>
+    <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.desc||'—'}</td>
+    <td style="text-align:center;font-family:var(--fm)">${f.expQty}</td>
+    <td style="text-align:center;font-family:var(--fm)">${f.rcvQty}</td>
+    <td style="text-align:center;font-family:var(--fm);font-weight:700;color:${f.missing>0?'var(--R)':'var(--G)'}">${f.missing}</td>
+    <td><span class="dchip ${f.days>60?'dr':f.days>30?'da':'dg2'}">${f.days}d</span></td>
+    <td style="font-size:11px">${f.disp}</td>
+    <td style="font-size:11px;color:var(--tx2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.notes}">${f.notes}</td>
+    <td style="font-size:11px;color:var(--tx3)">${f.date}</td>
+    <td><span class="badge ${f.status==='open'?'ba':'bg'}">${f.status.toUpperCase()}</span></td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// BILLING
+// ══════════════════════════════════════════════
+const BWEEKS=[
+  {w:'Apr 1–6, 2026',rows:[{o:'PFW-10042',c:'Sarah Mitchell',sku:'PFW-BLK-LGG-XS-001',u:1,cond:'Good'},{o:'PFW-10039',c:'James Chen',sku:'PFW-NVY-SPRT-M-002',u:2,cond:'Damaged'},{o:'PFW-10035',c:'Emily Rossi',sku:'PFW-WHT-CROP-S-003',u:1,cond:'Good'}]},
+  {w:'Mar 25–31, 2026',rows:[{o:'PFW-10031',c:'Marcus Thompson',sku:'PFW-GRY-HOODIE-XL-004',u:1,cond:'Good'},{o:'PFW-10028',c:'Priya Sharma',sku:'PFW-BLK-BRA-M-005',u:1,cond:'Damaged'},{o:'PFW-10025',c:'Daniel Park',sku:'PFW-BLU-TANK-S-006',u:1,cond:'Good'},{o:'PFW-10022',c:'Lisa Wang',sku:'PFW-RED-SET-M-007',u:1,cond:'Good'},{o:'PFW-10019',c:'Robert Kim',sku:'PFW-GRN-LGNG-L-008',u:2,cond:'Damaged'}]},
+];
+function renderBilling(){
+  const el=document.getElementById('bill-w');if(!el)return;
+  el.innerHTML=BWEEKS.map((w,wi)=>{
+    const tu=w.rows.reduce((s,r)=>s+r.u,0),gu=w.rows.filter(r=>r.cond==='Good').reduce((s,r)=>s+r.u,0),du=w.rows.filter(r=>r.cond==='Damaged').reduce((s,r)=>s+r.u,0),tot=(gu*5)+(du*3.5);
+    return`<div style="background:var(--bg3);border:1px solid var(--b);border-radius:var(--rl);margin-bottom:10px;overflow:hidden">
+      <div style="padding:12px 15px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--fd);font-weight:700;font-size:14px">${w.w}</span><span class="badge bgr">${tu} units</span><span class="badge bgr">${w.rows.length} orders</span></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="text-align:right"><div style="font-size:10px;color:var(--tx3);font-family:var(--fm)">WEEK TOTAL</div><div style="font-family:var(--fd);font-size:17px;font-weight:800;color:var(--Y)">$${tot.toFixed(2)}</div></div><button class="btn bY sm" onclick="event.stopPropagation();toast('📄 Invoice generated','s')">Invoice</button></div>
+      </div>
+      <div ${wi===0?'':'style="display:none"'}>
+        <table class="tbl" style="margin:0;border-top:1px solid var(--b)"><thead><tr><th>Order ID</th><th>Customer</th><th>SKU</th><th>Units</th><th>Condition</th><th>Rate</th><th>Subtotal</th></tr></thead>
+        <tbody>${w.rows.map(r=>{const rate=r.cond==='Damaged'?3.50:5.00;return`<tr><td class="mono">${r.o}</td><td style="font-size:12px">${r.c}</td><td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${r.sku}</td><td style="text-align:center;font-family:var(--fm);font-weight:600">${r.u}</td><td><span class="badge ${r.cond==='Damaged'?'br':'bg'}">${r.cond}</span></td><td class="mono">$${rate.toFixed(2)}/unit</td><td style="font-family:var(--fm);font-weight:700;color:var(--G)">$${(r.u*rate).toFixed(2)}</td></tr>`;}).join('')}</tbody>
+        </table>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 15px;background:var(--Yd);border-top:1px solid var(--b)">
+          <div style="font-size:12px;color:var(--tx2)">Good: ${gu}×$5.00=$${(gu*5).toFixed(2)} · Damaged: ${du}×$3.50=$${(du*3.5).toFixed(2)}</div>
+          <div style="font-family:var(--fd);font-size:20px;font-weight:800;color:var(--Y)">$${tot.toFixed(2)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  const ih=document.getElementById('ih-tbody');if(!ih)return;
+  [{n:'INV-2026-016',p:'Mar 25–31',o:5,u:8,r:'$5/$3.50',t:'$36.50',s:'paid',d:'Apr 1'},{n:'INV-2026-015',p:'Mar 18–24',o:7,u:11,r:'$5/$3.50',t:'$53.50',s:'paid',d:'Mar 25'},{n:'INV-2026-014',p:'Mar 11–17',o:4,u:6,r:'$5/$3.50',t:'$28.00',s:'unpaid',d:'Mar 18'}].forEach(i=>{const tr=ih.insertRow();tr.innerHTML=`<td style="font-family:var(--fm);color:var(--Y)">${i.n}</td><td>${i.p}</td><td>${i.o}</td><td style="font-family:var(--fm);font-weight:600">${i.u}</td><td class="mono">${i.r}</td><td style="font-weight:700;color:var(--G)">${i.t}</td><td><span class="badge ${i.s==='paid'?'bg':'ba'}">${i.s.toUpperCase()}</span></td><td style="font-size:11px;color:var(--tx2)">${i.d}</td>`;});
+}
+function bTab(id,btn){document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');['w','h','r'].forEach(s=>{const el=document.getElementById('bt-'+s);if(el)el.style.display=s===id?'block':'none';});}
+
+// ══════════════════════════════════════════════
+// BI
+// ══════════════════════════════════════════════
+function renderBI(){
+  const ll=document.getElementById('bi-launches');if(!ll)return;
+  const max=Math.max(...BI_DATA.map(d=>d.returned/d.shipped*100));
+  ll.innerHTML=BI_DATA.map(d=>{
+    const rate=(d.returned/d.shipped*100).toFixed(1);
+    const ac={'ACTION REQUIRED':'apr','INVESTIGATE':'apa','MONITOR':'apb','HEALTHY':'apg'}[d.assess]||'apg';
+    const bc=parseFloat(rate)>15?'var(--R)':parseFloat(rate)>10?'var(--A)':'var(--G)';
+    return`<div class="lrow">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.prod}</span>
+          ${d.promo?'<span class="badge bp" style="font-size:9px;flex-shrink:0">PROMO</span>':''}
+          <span style="font-size:10px;color:var(--tx3);flex-shrink:0">${d.date}</span>
+        </div>
+        <div class="rbt"><div class="rbf" style="width:${Math.min(parseFloat(rate)/max*100,100)}%;background:${bc}"></div></div>
+        <div style="font-size:10px;color:var(--tx2);margin-top:3px">${d.shipped.toLocaleString()} shipped · ${d.returned.toLocaleString()} returned · avg ${d.avgDays}d held</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:10px">
+        <div style="font-family:var(--fm);font-size:14px;font-weight:700;color:${bc}">${rate}%</div>
+        <span class="apill ${ac}" style="margin-top:3px">${d.assess}</span>
+      </div>
+    </div>`;
+  }).join('');
+  const reasons=[{r:'Wrong Size',n:31,c:'var(--A)'},{r:'Defective',n:22,c:'var(--R)'},{r:'Changed Mind',n:14,c:'var(--tx2)'},{r:'Wrong Color',n:8,c:'var(--B)'},{r:'Shipping Damage',n:5,c:'var(--P)'}];
+  const rm=Math.max(...reasons.map(r=>r.n));
+  document.getElementById('bi-reasons').innerHTML=reasons.map(r=>`<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">${r.r}</span><span style="font-family:var(--fm);font-size:13px;font-weight:600;color:${r.c}">${r.n}</span></div><div class="prog"><div class="pf" style="width:${Math.round(r.n/rm*100)}%;background:${r.c}"></div></div></div>`).join('');
+  document.getElementById('bi-insights').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="background:rgba(240,69,69,.07);border:1px solid rgba(240,69,69,.2);border-radius:var(--rl);padding:13px"><div style="font-size:11px;font-weight:700;color:var(--R);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:8px">🔴 Action Required</div><div style="font-size:12px;color:var(--tx2);line-height:1.7"><strong style="color:var(--tx)">Sports Bra (New Fit Tech)</strong> — 18.0% return rate with 260 defective returns. New fit design likely has sizing/material issue. Recommend production audit before reorder.<br><br><strong style="color:var(--tx)">Sport Shorts Spring Launch</strong> — 12.4% with 180 defective. Possible manufacturing batch defect.</div></div><div style="background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.2);border-radius:var(--rl);padding:13px"><div style="font-size:11px;font-weight:700;color:var(--A);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:8px">🟡 Investigate / Monitor</div><div style="font-size:12px;color:var(--tx2);line-height:1.7"><strong style="color:var(--tx)">Valentine Matching Set (Promo)</strong> — 17.5%. Promo launches drive impulse sizing errors. Recommend size guide popup at PDP checkout.<br><br><strong style="color:var(--tx)">Fitted Hoodie Drop</strong> — 12.3% with avg 62d held. Late returns suggest customers tried it then returned. Size chart update recommended.</div></div></div>`;
+}
+
+// ══════════════════════════════════════════════
+// DAYS HELD
+// ══════════════════════════════════════════════
+function renderDH(){
+  const tb=document.getElementById('dh-tbody');if(!tb)return;
+  tb.innerHTML=DAYS_HELD.map(r=>`<tr>
+    <td class="mono">${r.oid}</td><td style="font-size:12px">${r.cust}</td>
+    <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${r.sku}</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.prod}</td>
+    <td style="font-size:11px;color:var(--T)">${r.ship}</td>
+    <td style="font-size:11px">${r.rma}</td>
+    <td><span class="dchip ${r.days>60?'dr':r.days>30?'da':'dg2'}">${r.days} days</span></td>
+    <td style="font-size:12px">${r.reason}</td>
+    <td>${condBadge(r.cond)}</td>
+    <td style="font-size:11px;font-weight:600;color:${r.outcome==='Restocked'?'var(--G)':r.outcome==='Damage Out'?'var(--R)':'var(--A)'}">${r.outcome}</td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// EMAIL
+// ══════════════════════════════════════════════
+function renderEmailDisplay(){
+  const ed=document.getElementById('email-display');if(ed)ed.innerHTML=emailList.map(e=>`<span class="echip">${e}<button onclick="removeEmail('${e}')">×</button></span>`).join('');
+  const ec=document.getElementById('email-chips');if(ec)ec.innerHTML=emailList.map(e=>`<span class="echip">${e}<button onclick="removeEmail('${e}')">×</button></span>`).join('');
+}
+function addEmailList(){const i=document.getElementById('email-new'),v=i.value.trim();if(!v||!v.includes('@')){toast('Enter valid email','e');return;}if(!emailList.includes(v))emailList.push(v);i.value='';renderEmailDisplay();}
+function addEmail(){const i=document.getElementById('email-add-in'),v=i.value.trim();if(!v||!v.includes('@')){toast('Enter valid email','e');return;}if(!emailList.includes(v))emailList.push(v);i.value='';renderEmailDisplay();}
+function removeEmail(e){emailList=emailList.filter(x=>x!==e);renderEmailDisplay();}
+function sendReport(){toast(`📧 Report sent to: ${emailList.join(', ')}`,'s');cm('emo');}
+function dlReport(){toast('↓ Downloading Excel report…','s');}
+
+// ══════════════════════════════════════════════
+// MERCHANTS
+// ══════════════════════════════════════════════
+function renderMerchants(){
+  const el=document.getElementById('merch-list');if(!el)return;
+  el.innerHTML=`<div style="background:var(--bg3);border:1px solid rgba(34,212,106,.3);border-radius:var(--rl);padding:15px;margin-bottom:10px;display:flex;align-items:center;gap:13px"><div style="width:42px;height:42px;border-radius:var(--rl);background:var(--Yd);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🛍</div><div style="flex:1"><div style="font-weight:700;font-size:14px;margin-bottom:2px">Paragonfitwear <span class="badge bg" style="font-size:9px">Active</span></div><div style="font-family:var(--fm);font-size:11px;color:var(--tx3);margin-bottom:3px">paragonfitwear.myshopify.com · RR-PARA-001 · ops@paragonfitwear.com</div><div style="font-size:12px;color:var(--tx2)">47 returns this week · $910 billed MTD</div></div><div style="display:flex;gap:6px"><button class="btn bs sm" onclick="toast('Settings for Paragonfitwear','s')">Settings</button><button class="btn bY sm" onclick="om('emo')">📧 Report</button></div></div>
+  <div style="border:2px dashed var(--b2);border-radius:var(--rl);padding:22px;text-align:center;cursor:pointer" onclick="addMerchant()"><div style="font-size:22px;margin-bottom:7px">➕</div><div style="font-size:14px;font-weight:600;margin-bottom:3px">Add New Merchant</div><div style="font-size:12px;color:var(--tx2)">Connect Shopify store + Return Rabbit account · Set billing rates · Configure email reports</div></div>`;
+}
+function addMerchant(){toast('➕ Merchant wizard — Shopify domain, RR API key, billing rate, contact email','s');}
+function switchM(v){if(v==='add'){toast('➕ Add merchant — see Merchants page','w');document.getElementById('merch-select').value='paragon';return;}document.getElementById('mlabel').textContent='Paragonfitwear';toast('Merchant: Paragonfitwear','s');}
+
+// ══════════════════════════════════════════════
+// USERS
+// ══════════════════════════════════════════════
+function renderUsers(){
+  const tb=document.getElementById('utbody');if(!tb)return;
+  tb.innerHTML=USERS.map(u=>`<tr><td><div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:28px;border-radius:50%;background:${u.c}22;color:${u.c};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px">${u.i}</div><span style="font-weight:600;font-size:13px">${u.n}</span></div></td><td><span class="badge ${u.role==='Administrator'?'by':'bgr'}">${u.role}</span></td><td style="font-family:var(--fm);color:var(--tx3)">••••</td><td style="font-size:12px">All Merchants</td><td><span class="badge ${u.billing?'by':'bgr'}">${u.billing?'Yes':'No'}</span></td><td style="font-size:11px;color:var(--tx2)">Today</td><td><span class="badge bg">Active</span></td><td><button class="btn bs sm">Edit</button></td></tr>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// MODAL / TOAST
+// ══════════════════════════════════════════════
+function om(id){document.getElementById(id).classList.add('open');if(id==='emo')renderEmailDisplay();}
+function cm(id){document.getElementById(id).classList.remove('open');}
+function toast(msg,type='s'){
+  const t=document.getElementById('tst');
+  t.className='toast '+type;
+  t.innerHTML=(type==='s'?'<span style="color:var(--G)">✓</span>':type==='e'?'<span style="color:var(--R)">!</span>':'<span style="color:var(--A)">⚑</span>')+' '+msg;
+  t.classList.add('show');clearTimeout(window._t);window._t=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// ══════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════
+buildUCards();
+</script>
+</body>
+</html>
