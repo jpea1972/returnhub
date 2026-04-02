@@ -1104,10 +1104,13 @@ async function procScanLive(code){
   if(!code) return;
   const z=document.getElementById('sz');
 
-  // Strip USPS delivery point prefix (e.g. 42085286 + tracking)
-  if(/^[0-9]{26,34}$/.test(code)){
-    const m=code.match(/(9[0-9]{19,21})/);
-    if(m){ console.log('Stripped prefix:',code,'->',m[0]); code=m[0]; }
+  // Strip USPS delivery point prefix — handles all USPS tracking formats:
+  // 9400/9434/9205/9407/9303/9500/9505/9270/9101/9308 = 22 digits
+  // 8200/8600 series = 20 digits
+  // Full barcode: 420{ZIP5}{tracking}=30 digits or 420{ZIP9}{tracking}=34 digits
+  if(code.length > 22 && /^[0-9]+$/.test(code)){
+    const m=code.match(/((?:9[0-9]{3}|82)[0-9]{17,19})/);
+    if(m){ console.log('Stripped USPS prefix:',code,'->',m[0]); code=m[0]; }
   }
 
   const isTrack=/^[0-9]{10,30}$/.test(code);
