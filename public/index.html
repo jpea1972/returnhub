@@ -1134,7 +1134,7 @@ async function procScanLive(code){
   // 1. Local cache first (fast path)
   // ── Scan logic: live 90-day lookup with duplicate picker ──
   const isTrack=/^[0-9]{10,30}$/.test(code);
-  const alreadyDone=new Set(PROCESSED_LOG.map(r=>r.orderId));
+  const alreadyDone=new Set((typeof PROCESSED_LOG!=="undefined"?PROCESSED_LOG:[]).map(r=>r.orderId));
   const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-90);
 
   // 1. Quick cache check for exact order ID match (fast path)
