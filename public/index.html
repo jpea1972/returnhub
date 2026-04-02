@@ -880,7 +880,7 @@ let RR_CONFIG = {
 };
 
 const RR_ENDPOINTS = [
-  {method:'GET',  path:'/returns',              desc:'List all returns (paginated)',          used:'Return Queue & RR Feed'},
+  {method:'GET',  path:'/api/v1/service-requests/',desc:'List all service requests (paginated)',used:'Return Queue & RR Feed'},
   {method:'GET',  path:'/returns?tracking={n}', desc:'Look up by tracking / shipping barcode',used:'Scan & Process'},
   {method:'GET',  path:'/returns/{id}',          desc:'Single return with full line items',   used:'Detail panel & photo'},
   {method:'PATCH',path:'/returns/{id}',          desc:'Update return status',                 used:'Mark processed / damage out'},
@@ -921,7 +921,7 @@ async function testRRConnection(){
       throw new Error('RR_TOKEN not in server .env — add it and restart');
     }
     // 2. Try a live call through the proxy
-    const rrRes = await fetch(`${RR_CONFIG.baseUrl}/v1/service-requests/?page=1`, {
+    const rrRes = await fetch(`${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=1`, {
       headers: getAuthHeaders(),
     });
     if(rrRes.ok){
@@ -978,15 +978,18 @@ async function fetchRR(){
     let allResults = [];
     let page = 1;
     let hasMore = true;
-    const MAX_PAGES = 20; // safety limit — 20 pages × ~20 per page = up to 400 returns
+    const MAX_PAGES = 10; // 10 pages × 50 per page = 500 most recent returns (~90 days)
+
+    // Fetch all returns from Jan 1, 2026 onwards
+    const DATE_CUTOFF = new Date('2026-01-01T00:00:00Z');
+    const MAX_PAGES = 100; // safety cap — at 50/page = up to 5000 returns
 
     while(hasMore && page <= MAX_PAGES){
-      // Build URL — try without extra params first, RR may not need filters for warehouse tokens
-      const url = `${RR_CONFIG.baseUrl}/v1/service-requests/?page=${page}`;
+      const url = `${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${page}`;
       const res = await fetch(url, { headers: getAuthHeaders() });
       if(!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Handle both JSON object and raw string responses
+      // Handle both JSON and raw string responses
       const text = await res.text();
       let data;
       try { data = JSON.parse(text); } catch(e) {
@@ -994,20 +997,41 @@ async function fetchRR(){
         hasMore = false; break;
       }
 
-      // RR returns "ReturnRabbit REST APIs" string if endpoint is wrong
+      // RR returns a plain string if endpoint is wrong
       if(typeof data === 'string'){
         addSyncLog('Endpoint error','error','RR returned: '+data);
         hasMore = false; break;
       }
 
       const pageResults = data.results || (Array.isArray(data)?data:[]);
-      addSyncLog(`Page ${page}`,'success',`${pageResults.length} records · total count: ${data.count||'?'}`);
 
       if(pageResults.length === 0){
         hasMore = false;
+        break;
+      }
+
+      // Filter to only Jan 1, 2026 onwards
+      // Returns are sorted newest first — stop when we hit older than cutoff
+      const filtered = [];
+      let hitCutoff = false;
+      for(const r of pageResults){
+        const created = new Date(r.created || r.created_at || 0);
+        if(created >= DATE_CUTOFF){
+          filtered.push(r);
+        } else {
+          hitCutoff = true; // everything after this is older
+        }
+      }
+
+      allResults = allResults.concat(filtered);
+      addSyncLog(`Page ${page}`,'success',
+        `${filtered.length} in range · ${pageResults.length-filtered.length} skipped (pre-Jan 2026) · total so far: ${allResults.length}`
+      );
+
+      // Stop if we hit the date cutoff or no more pages
+      if(hitCutoff || !data.next){
+        hasMore = false;
       } else {
-        allResults = allResults.concat(pageResults);
-        hasMore = !!data.next;
         page++;
       }
     }
@@ -1122,7 +1146,7 @@ async function procScanLive(code){
     document.getElementById('stitle').textContent='🔍 Looking up in Return Rabbit…';
     document.getElementById('ssub').textContent='Querying returnrabbit.app for: '+code;
     try {
-      const res = await fetch(`${RR_CONFIG.baseUrl}/v1/service-requests/?page=1`,{
+      const res = await fetch(`${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=1`,{
         headers:getAuthHeaders(),
       });
       if(res.ok){
