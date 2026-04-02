@@ -1132,20 +1132,83 @@ async function procScanLive(code){
   if(!code) return;
   const z = document.getElementById('sz');
   // 1. Local cache first (fast path)
-  const cached=RETURNS.filter(x=>x.bc===code||x.id===code||x.rma===code||x.track===code||x.id==='@'+code);
-  if(cached.length>0){
-    const isTrack=/^[0-9]{10,30}$/.test(code);
-    // Skip returns already processed by our team this session
-    const alreadyDone=new Set(PROCESSED_LOG.map(r=>r.orderId));
-    const fresh=cached.filter(r=>!alreadyDone.has(r.id));
-    const pool=fresh.length>0?fresh:cached;
-    // Tracking: oldest = package at dock. Order ID: newest first
-    const best=pool.sort((a,b)=>{
-      const da=new Date(a._raw?.created||a.date||0);
-      const db=new Date(b._raw?.created||b.date||0);
-      return isTrack?da-db:db-da;
-    })[0];
-    if(best){curR=best;z.className='sz found';document.getElementById('stitle').textContent='✓ Return Found!';document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';showDetail(best);return;}
+  const // ── Scan logic: live 90-day lookup with duplicate picker ──
+  const isTrack=/^[0-9]{10,30}$/.test(code);
+  const alreadyDone=new Set(PROCESSED_LOG.map(r=>r.orderId));
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-90);
+
+  // 1. Quick cache check for exact order ID match (fast path)
+  if(!isTrack){
+    const cached=RETURNS.filter(x=>x.id===code||x.rma===code||x.id==='@'+code);
+    if(cached.length>0){
+      const best=cached.sort((a,b)=>new Date(b._raw?.created||0)-new Date(a._raw?.created||0))[0];
+      curR=best;z.className='sz found';
+      document.getElementById('stitle').textContent='✓ Return Found!';
+      document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
+      showDetail(best);return;
+    }
+  }
+
+  // 2. Live RR lookup — scan pages, stop when older than 90 days
+  if(RR_CONFIG.connected){
+    document.getElementById('stitle').textContent='🔍 Searching Return Rabbit…';
+    document.getElementById('ssub').textContent='Scanning last 90 days for: '+code;
+    try{
+      let matches=[];
+      let hitCutoff=false;
+
+      for(let p=1;p<=30&&!hitCutoff;p++){
+        const res=await fetch(`${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${p}`,{headers:getAuthHeaders()});
+        if(!res.ok) break;
+        const data=await res.json();
+        const results=data.results||[];
+
+        for(const r of results){
+          const created=new Date(r.created||0);
+          if(created<cutoff){hitCutoff=true;break;} // past 90 days, stop
+          const track=r.fulfillment_details?.tracking_number||'';
+          const orderId=r.order||'';
+          const name=r.name||'';
+          if(isTrack && track===code) matches.push(r);
+          else if(!isTrack && (orderId===code||orderId==='@'+code.replace('@','')||name===code)) matches.push(r);
+        }
+        if(!data.next) break;
+        // If order ID search found a match, stop early
+        if(!isTrack && matches.length>0) break;
+      }
+
+      if(matches.length===0){
+        // Not found in 90 days
+        z.className='sz err';
+        document.getElementById('stitle').textContent='✗ Not Found';
+        document.getElementById('ssub').textContent='No return found in last 90 days · try typing the order number (e.g. @702162)';
+        setTimeout(()=>{z.className='sz';document.getElementById('stitle').textContent='Ready to Scan';document.getElementById('ssub').textContent='Point scanner at shipping label · click and type · F2 = demo scan';},3000);
+        return;
+      }
+
+      // Filter out already-processed by our team
+      const fresh=matches.filter(r=>!alreadyDone.has(r.order));
+      const pool=fresh.length>0?fresh:matches;
+
+      // Add all to cache
+      pool.forEach(r=>{const mapped=mapRRReturn(r);if(!RETURNS.find(x=>x.rrid===mapped.rrid))RETURNS.unshift(mapped);});
+
+      if(pool.length===1){
+        // Single match — go straight to processing
+        const r=mapRRReturn(pool[0]);
+        curR=r;z.className='sz found';
+        document.getElementById('stitle').textContent='✓ Found in Return Rabbit!';
+        document.getElementById('ssub').textContent='Live data · check each item received';
+        showDetail(r);
+        addSyncLog('Scan','success',`${r.id} · ${r.cust}`);
+      } else {
+        // Multiple matches — show picker
+        showScanPicker(pool, code);
+      }
+      return;
+    } catch(e){
+      addSyncLog('Scan error','error',e.message);
+    }
   }
   // 2. Live RR lookup if connected
   if(RR_CONFIG.connected){
@@ -2137,6 +2200,53 @@ function toast(msg,type='s'){
   t.className='toast '+type;
   t.innerHTML=(type==='s'?'<span style="color:var(--G)">✓</span>':type==='e'?'<span style="color:var(--R)">!</span>':'<span style="color:var(--A)">⚑</span>')+' '+msg;
   t.classList.add('show');clearTimeout(window._t);window._t=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+
+// ══════════════════════════════════════════════
+// SCAN DUPLICATE PICKER
+// ══════════════════════════════════════════════
+function showScanPicker(matches, scannedCode){
+  const z=document.getElementById('sz');
+  z.className='sz found';
+  document.getElementById('stitle').textContent=`${matches.length} returns found — tap the correct one`;
+  document.getElementById('ssub').textContent=`Tracking: ${scannedCode} · matched ${matches.length} returns in last 90 days`;
+
+  // Build picker UI inside the detail area
+  const det=document.getElementById('sdetail');
+  if(!det) return;
+
+  const rows=matches.map(r=>{
+    const cust=r.shipping_information?.name||'Unknown';
+    const order=r.order||r.name||'—';
+    const created=r.created?new Date(r.created).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const reason=r.line_items?.[0]?.reason||'—';
+    const items=r.line_items?.length||0;
+    const mapped=mapRRReturn(r);
+    const rid=mapped.rrid;
+    return `<div onclick="pickScanMatch('${rid}')" style="background:var(--bg2);border:1px solid var(--b2);border-radius:var(--rl);padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--Y)'" onmouseout="this.style.borderColor='var(--b2)'">
+      <div>
+        <div style="font-family:var(--fm);font-size:13px;color:var(--Y);font-weight:700;margin-bottom:3px">${order}</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:2px">${cust}</div>
+        <div style="font-size:11px;color:var(--tx3)">${created} · ${items} item(s) · ${reason}</div>
+      </div>
+      <div style="background:var(--Yd);color:var(--Y);font-family:var(--fm);font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap">Select →</div>
+    </div>`;
+  }).join('');
+
+  det.innerHTML=`<div style="padding:16px;display:flex;flex-direction:column;gap:10px">${rows}</div>`;
+  det.style.display='block';
+}
+
+function pickScanMatch(rrid){
+  const r=RETURNS.find(x=>x.rrid===rrid);
+  if(!r) return;
+  curR=r;
+  document.getElementById('sz').className='sz found';
+  document.getElementById('stitle').textContent='✓ Return Found!';
+  document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
+  showDetail(r);
+  addSyncLog('Scan picker','success',`Selected ${r.id} · ${r.cust}`);
 }
 
 // ══════════════════════════════════════════════
