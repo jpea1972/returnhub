@@ -23,11 +23,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
+      scriptSrc:  ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc:   ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "fonts.gstatic.com"],
-      fontSrc:    ["'self'", "fonts.gstatic.com", "fonts.googleapis.com"],
+      fontSrc:    ["'self'", "fonts.gstatic.com", "fonts.googleapis.com", "data:"],
       imgSrc:     ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "https:"],
     },
   },
 }));
