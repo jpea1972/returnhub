@@ -1130,161 +1130,101 @@ function mapRRReturn(rma){
 // ── BARCODE SCAN — live lookup ───────────────────────
 async function procScanLive(code){
   if(!code) return;
-  const z = document.getElementById('sz');
-  // 1. Local cache first (fast path)
-  // ── Normalize barcode: strip USPS delivery point prefix ──
-  // Full scan reads as: 42{ZIP}{tracking} e.g. 420852869400150106151080498097
-  // Real tracking starts with 94,92,93,94,70,82 and is 20-22 digits
-  let normalizedCode = code;
+  const z=document.getElementById('sz');
+
+  // Strip USPS delivery point prefix (e.g. 42085286 + tracking)
   if(/^[0-9]{26,34}$/.test(code)){
-    // Look for USPS tracking number embedded in longer barcode
-    const trackMatch = code.match(/(9[0-9]{21}|9[0-9]{19})/);
-    if(trackMatch) {
-      normalizedCode = trackMatch[0];
-      console.log('Stripped USPS prefix:',code,'->',normalizedCode);
-    }
+    const m=code.match(/(9[0-9]{19,21})/);
+    if(m){ console.log('Stripped prefix:',code,'->',m[0]); code=m[0]; }
   }
-  code = normalizedCode;
 
-  // ── Scan logic: hybrid cache + live lookup ──
   const isTrack=/^[0-9]{10,30}$/.test(code);
-  const alreadyDone=new Set((typeof PROCESSED_LOG!=="undefined"?PROCESSED_LOG:[]).map(r=>r.orderId));
-  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-90);
+  const alreadyDone=new Set((typeof PROCESSED_LOG!=='undefined'?PROCESSED_LOG:[]).map(r=>r.orderId));
 
-  // 1. Quick cache check for exact order ID match (fast path)
-  if(!isTrack){
-    const cached=RETURNS.filter(x=>x.id===code||x.rma===code||x.id==='@'+code);
-    if(cached.length>0){
-      const best=cached.sort((a,b)=>new Date(b._raw?.created||0)-new Date(a._raw?.created||0))[0];
-      curR=best;z.className='sz found';
+  // Show searching state
+  z.className='sz found';
+  document.getElementById('stitle').textContent='🔍 Searching…';
+  document.getElementById('ssub').textContent='Looking up: '+code;
+
+  // 1. Cache lookup first (instant)
+  if(RETURNS.length>0){
+    const cached=RETURNS.filter(x=>{
+      if(isTrack) return x.track===code&&x.track!=='—'&&x.track!=='';
+      return x.id===code||x.rma===code||x.id==='@'+code||('@'+code)===x.id;
+    });
+    const fresh=cached.filter(r=>!alreadyDone.has(r.id));
+    const pool=fresh.length>0?fresh:cached;
+    if(pool.length===1){
+      curR=pool[0];z.className='sz found';
       document.getElementById('stitle').textContent='✓ Return Found!';
       document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
-      showDetail(best);return;
+      showDetail(pool[0]); return;
+    }
+    if(pool.length>1){
+      const rawList=pool.map(r=>r._raw).filter(Boolean);
+      if(rawList.length>0){showScanPicker(rawList,code);return;}
+      curR=pool[0];z.className='sz found';
+      document.getElementById('stitle').textContent='✓ Return Found!';
+      document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
+      showDetail(pool[0]); return;
     }
   }
 
-  // 2. Live RR lookup — scan pages, stop when older than 90 days
+  // 2. Live API scan — pages 1-5 only (last ~2 weeks)
   if(RR_CONFIG.connected){
-    document.getElementById('stitle').textContent='🔍 Searching Return Rabbit…';
-    document.getElementById('ssub').textContent='Scanning last 90 days for: '+code;
     try{
       let matches=[];
-      let hitCutoff=false;
+      for(let p=1;p<=5;p++){
+        let data;
+        try{
+          const res=await Promise.race([
+            fetch(`${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${p}`,{headers:getAuthHeaders()}),
+            new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000))
+          ]);
+          if(!res.ok) break;
+          data=await res.json();
+        } catch(e){ console.log('Page',p,'error:',e.message); break; }
 
-      for(let p=1;p<=30&&!hitCutoff;p++){
-        const res=await fetch(`${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${p}`,{headers:getAuthHeaders()});
-        if(!res.ok) break;
-        const data=await res.json();
         const results=data.results||[];
-
         for(const r of results){
-          const created=new Date(r.created||0);
-          if(created<cutoff){hitCutoff=true;break;} // past 90 days, stop
           const track=r.fulfillment_details?.tracking_number||'';
           const orderId=r.order||'';
           const name=r.name||'';
-          if(isTrack && track===code) matches.push(r);
-          else if(!isTrack && (orderId===code||orderId==='@'+code.replace('@','')||name===code)) matches.push(r);
+          if(isTrack&&track&&track===code) matches.push(r);
+          else if(!isTrack&&(orderId===code||'@'+code.replace(/^@/,'')===orderId||name===code)) matches.push(r);
         }
+        if(!isTrack&&matches.length>0) break;
         if(!data.next) break;
-        // If order ID search found a match, stop early
-        if(!isTrack && matches.length>0) break;
       }
 
-      if(matches.length===0){
-        // Not found in live pages 1-5 — fall back to cache (covers synced history)
-        document.getElementById('stitle').textContent='🔍 Checking local cache…';
-        const cached=RETURNS.filter(x=>
-          (isTrack && x.track===code && x.track!=='—' && x.track!=='') ||
-          (!isTrack && (x.id===code||x.rma===code||x.id==='@'+code))
-        );
-        const alreadyDoneSet=new Set((typeof PROCESSED_LOG!=="undefined"?PROCESSED_LOG:[]).map(r=>r.orderId));
-        const freshCached=cached.filter(r=>!alreadyDoneSet.has(r.id));
-        const pool=freshCached.length>0?freshCached:cached;
-
-        if(pool.length===1){
-          const r=pool[0];
-          curR=r;z.className='sz found';
-          document.getElementById('stitle').textContent='✓ Return Found! (from cache)';
-          document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
-          showDetail(r); return;
-        } else if(pool.length>1){
-          // Multiple cache matches — show picker
-          const rawMatches=pool.map(r=>r._raw).filter(Boolean);
-          if(rawMatches.length>0){ showScanPicker(rawMatches,code); return; }
-          // Fallback — just pick oldest
-          const best=pool.sort((a,b)=>new Date(a._raw?.created||0)-new Date(b._raw?.created||0))[0];
-          curR=best;z.className='sz found';
-          document.getElementById('stitle').textContent='✓ Return Found!';
-          document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
-          showDetail(best); return;
-        }
-
-        // Truly not found anywhere
-        z.className='sz err';
-        document.getElementById('stitle').textContent='✗ Not Found';
-        document.getElementById('ssub').textContent='Try typing the order number from the label (e.g. @702162)';
-        setTimeout(()=>{z.className='sz';document.getElementById('stitle').textContent='Ready to Scan';document.getElementById('ssub').textContent='Point scanner at shipping label · click and type · F2 = demo scan';},3500);
-        return;
-      }
-
-      // Filter out already-processed by our team
-      const fresh=matches.filter(r=>!alreadyDone.has(r.order));
-      const pool=fresh.length>0?fresh:matches;
-
-      // Add all to cache
-      pool.forEach(r=>{const mapped=mapRRReturn(r);if(!RETURNS.find(x=>x.rrid===mapped.rrid))RETURNS.unshift(mapped);});
-
-      if(pool.length===1){
-        // Single match — go straight to processing
-        const r=mapRRReturn(pool[0]);
-        curR=r;z.className='sz found';
-        document.getElementById('stitle').textContent='✓ Found in Return Rabbit!';
-        document.getElementById('ssub').textContent='Live data · check each item received';
-        showDetail(r);
-        addSyncLog('Scan','success',`${r.id} · ${r.cust}`);
-      } else {
-        // Multiple matches — show picker
-        showScanPicker(pool, code);
-      }
-      return;
-    } catch(e){
-      addSyncLog('Scan error','error',e.message);
-    }
-  }
-  // 2. Live RR lookup if connected
-  if(RR_CONFIG.connected){
-    document.getElementById('stitle').textContent='🔍 Looking up in Return Rabbit…';
-    document.getElementById('ssub').textContent='Querying returnrabbit.app for: '+code;
-    try {
-      const res = await fetch(`${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=1`,{
-        headers:getAuthHeaders(),
-      });
-      if(res.ok){
-        const data = await res.json();
-        const list = Array.isArray(data)?data:(data.results||data.data||[]);
-        if(list.length>0){
-          const r = mapRRReturn(list[0]);
-          RETURNS.unshift(r);
-          curR=r; z.className='sz found';
+      if(matches.length>0){
+        const mapped=matches.map(mapRRReturn);
+        mapped.forEach(r=>{if(!RETURNS.find(x=>x.rrid===r.rrid))RETURNS.unshift(r);});
+        const fresh2=mapped.filter(r=>!alreadyDone.has(r.id));
+        const pool2=fresh2.length>0?fresh2:mapped;
+        if(pool2.length===1){
+          curR=pool2[0];z.className='sz found';
           document.getElementById('stitle').textContent='✓ Found in Return Rabbit!';
           document.getElementById('ssub').textContent='Live data · check each item received';
-          showDetail(r);
-          addSyncLog('Barcode lookup','success',`Found ${r.id} via tracking ${code}`);
-          return;
+          showDetail(pool2[0]);
+          addSyncLog('Scan','success',`${pool2[0].id} · ${pool2[0].cust}`);
+        } else {
+          showScanPicker(matches,code);
         }
+        return;
       }
-    } catch(e){ addSyncLog('Barcode lookup','error',e.message); }
+    } catch(e){ console.log('Live scan error:',e.message); }
   }
+
   // 3. Not found
   z.className='sz err';
   document.getElementById('stitle').textContent='✗ Not Found';
-  document.getElementById('ssub').textContent='No RMA matched for: '+code;
+  document.getElementById('ssub').textContent='Try typing the order number from the label (e.g. @702162)';
   setTimeout(()=>{
     z.className='sz';
     document.getElementById('stitle').textContent='Ready to Scan';
     document.getElementById('ssub').textContent='Point scanner at shipping label · click and type · F2 = demo scan';
-  },2400);
+  },3500);
 }
 
 // ── PHOTO — live from RR then fallback ──────────────
