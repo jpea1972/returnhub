@@ -981,19 +981,32 @@ async function fetchRR(){
     const MAX_PAGES = 20; // safety limit — 20 pages × ~20 per page = up to 400 returns
 
     while(hasMore && page <= MAX_PAGES){
-      const params = new URLSearchParams({page});
-      const res = await fetch(`${RR_CONFIG.baseUrl}/v1/service-requests/?${params}`,{
-        headers: getAuthHeaders(),
-      });
+      // Build URL — try without extra params first, RR may not need filters for warehouse tokens
+      const url = `${RR_CONFIG.baseUrl}/v1/service-requests/?page=${page}`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
       if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+
+      // Handle both JSON object and raw string responses
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) {
+        addSyncLog('Parse error','error', text.substring(0,100));
+        hasMore = false; break;
+      }
+
+      // RR returns "ReturnRabbit REST APIs" string if endpoint is wrong
+      if(typeof data === 'string'){
+        addSyncLog('Endpoint error','error','RR returned: '+data);
+        hasMore = false; break;
+      }
+
       const pageResults = data.results || (Array.isArray(data)?data:[]);
+      addSyncLog(`Page ${page}`,'success',`${pageResults.length} records · total count: ${data.count||'?'}`);
 
       if(pageResults.length === 0){
         hasMore = false;
       } else {
         allResults = allResults.concat(pageResults);
-        // If RR returns a 'next' URL, there are more pages
         hasMore = !!data.next;
         page++;
       }
@@ -1002,10 +1015,9 @@ async function fetchRR(){
     if(allResults.length > 0){
       // Map and merge into RETURNS array — replace everything with fresh data
       const mapped = allResults.map(mapRRReturn);
-      // Clear old mock data on first real sync
-      if(RETURNS.length <= 5 && RETURNS[0]?.id?.startsWith('PFW-')){
-        RETURNS.length = 0; // clear demo data
-      }
+      // Clear demo data — demo data has PFW- prefix, real RR data uses order names like EXC@... or @...
+      const hasDemoData = RETURNS.some(r=>r.id?.startsWith('PFW-'));
+      if(hasDemoData) RETURNS.length = 0;
       mapped.forEach(r=>{
         const idx = RETURNS.findIndex(x=>x.track===r.track||x.id===r.id||x.rrid===r.rrid);
         if(idx>=0) RETURNS[idx]=r; else RETURNS.unshift(r);
