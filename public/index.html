@@ -796,47 +796,9 @@ let printers=[
 //   rcvQty: number, dmgChecks: [], dmgNotes: '', dmgDisp: '', wrongNotes: '' }
 let itemStates = {};
 
-const RETURNS=[
-  {id:'PFW-10042',bc:'9400111899223344556600',cust:'Sarah Mitchell',
-   items:[{sku:'PFW-BLK-LGG-XS-001',desc:'High-Waist Legging - Black - XS',qty:1}],
-   reason:'Wrong Size',rma:'RMA-8821',rrid:'RR-44271',track:'9400111899223344556600',
-   date:'Apr 1',shipDate:'Feb 14, 2026',daysHeld:45,status:'arrived',val:68,
-   photo:'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=200&q=80'},
+const RETURNS=[];
 
-  {id:'PFW-10039',bc:'9400111899223344557711',cust:'James Chen',
-   items:[{sku:'PFW-NVY-SPRT-M-002',desc:'Sport Shorts - Navy - M',qty:2}],
-   reason:'Defective',rma:'RMA-8819',rrid:'RR-44268',track:'9400111899223344557711',
-   date:'Apr 1',shipDate:'Jan 30, 2026',daysHeld:59,status:'pending',val:44,
-   photo:'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=200&q=80'},
-
-  {id:'PFW-10025',bc:'9400111899223344552255',cust:'Daniel Park',
-   items:[
-     {sku:'PFW-BLU-TANK-S-006',  desc:'Performance Tank - Blue - S',  qty:1},
-     {sku:'PFW-BLU-SHORT-S-006B',desc:'Matching Shorts - Blue - S',   qty:1},
-     {sku:'PFW-BLU-BRA-S-006C',  desc:'Sports Bra - Blue - S',        qty:1},
-   ],
-   reason:'Wrong Color',rma:'RMA-8805',rrid:'RR-44233',track:'9400111899223344552255',
-   date:'Mar 31',shipDate:'Feb 28, 2026',daysHeld:31,status:'flagged',val:36,
-   photo:'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&q=80'},
-
-  {id:'PFW-10031',bc:'9400111899223344559933',cust:'Marcus Thompson',
-   items:[{sku:'PFW-GRY-HOODIE-XL-004',desc:'Fitted Hoodie - Grey - XL',qty:1}],
-   reason:'Wrong Size',rma:'RMA-8811',rrid:'RR-44250',track:'9400111899223344559933',
-   date:'Mar 31',shipDate:'Jan 15, 2026',daysHeld:75,status:'processed',val:88,
-   photo:'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=200&q=80'},
-
-  {id:'PFW-10022',bc:'1Z999AA10123456784',cust:'Lisa Wang',
-   items:[{sku:'PFW-RED-SET-M-007',desc:'Matching Set - Red - M',qty:1}],
-   reason:'Wrong Size',rma:'RMA-8802',rrid:'RR-44219',track:'1Z999AA10123456784',
-   date:'Mar 30',shipDate:'Mar 1, 2026',daysHeld:29,status:'flagged',val:112,
-   photo:'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=200&q=80'},
-];
-
-let FLAGS=[
-  {type:'Damaged',oid:'PFW-10039',rrid:'RR-44268',cust:'James Chen',sku:'PFW-NVY-SPRT-M-002',desc:'Sport Shorts - Navy - M',expQty:2,rcvQty:2,missing:0,disp:'Damage Out — Dispose',notes:'Torn seam both units. Manufacturing defect.',days:59,date:'Apr 1',status:'open'},
-  {type:'Partial',oid:'PFW-10025',rrid:'RR-44233',cust:'Daniel Park',sku:'PFW-BLU-TANK-S-006',desc:'Performance Tank - Blue - S',expQty:3,rcvQty:1,missing:2,disp:'Hold',notes:'Only 1 of 3 units arrived. Customer contacted.',days:31,date:'Mar 31',status:'open'},
-  {type:'Wrong Product',oid:'PFW-10022',rrid:'RR-44219',cust:'Lisa Wang',sku:'PFW-RED-SET-M-007',desc:'Matching Set - Red - M',expQty:1,rcvQty:1,missing:0,disp:'Quarantine',notes:'Not a Paragonfitwear product.',days:29,date:'Mar 30',status:'open'},
-];
+let FLAGS=[];
 
 const DAYS_HELD=[
   {oid:'PFW-10042',cust:'Sarah Mitchell',sku:'PFW-BLK-LGG-XS-001',prod:'High-Waist Legging - Black - XS',ship:'Feb 14, 2026',rma:'Mar 28, 2026',days:42,reason:'Wrong Size',cond:'Good',outcome:'Restocked'},
