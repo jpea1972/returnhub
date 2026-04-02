@@ -962,7 +962,17 @@ function setRRStatus(state){
 }
 
 // ── FULL SYNC — pull all returns from RR ────────────
+let rrSyncLock=false;
 async function fetchRR(){
+  if(rrSyncLock){console.log('Sync already running, skipping');return;}
+  rrSyncLock=true;
+  try{
+    await _fetchRRInner();
+  } finally{
+    rrSyncLock=false;
+  }
+}
+async function _fetchRRInner(){
   if(!RR_CONFIG.connected && RR_CONFIG.lastSync===null){
     // Not yet connected — render mock data
     rRR(); return;
@@ -1055,7 +1065,7 @@ async function fetchRR(){
     addSyncLog('Full sync','error',e.message.substring(0,120));
     rRR();
   }
-}
+} // end _fetchRRInner
 
 // ── MAP RR PAYLOAD → ReturnHub format ───────────────
 // Field names here match the most common RR API patterns.
