@@ -978,8 +978,6 @@ async function fetchRR(){
     let allResults = [];
     let page = 1;
     let hasMore = true;
-    const MAX_PAGES = 10; // 10 pages × 50 per page = 500 most recent returns (~90 days)
-
     // Fetch all returns from Jan 1, 2026 onwards
     const DATE_CUTOFF = new Date('2026-01-01T00:00:00Z');
     const MAX_PAGES = 100; // safety cap — at 50/page = up to 5000 returns
