@@ -20,17 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 // ── SECURITY ──────────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc:    ["'self'"],
-      scriptSrc:     ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc:      ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "fonts.gstatic.com"],
-      fontSrc:       ["'self'", "fonts.gstatic.com", "fonts.googleapis.com", "data:"],
-      imgSrc:        ["'self'", "data:", "https:", "blob:"],
-      connectSrc:    ["'self'", "https:"],
-    },
-  },
+  contentSecurityPolicy: false,
 }));
 
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
