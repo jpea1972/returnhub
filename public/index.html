@@ -1132,12 +1132,11 @@ async function procScanLive(code){
   if(!code) return;
   const z = document.getElementById('sz');
   // 1. Local cache first (fast path)
-  const cached = RETURNS.find(x=>x.bc===code||x.bc.startsWith(code.substring(0,12))||x.id===code||x.rma===code);
-  if(cached){
-    curR=cached; z.className='sz found';
-    document.getElementById('stitle').textContent='✓ Return Found!';
-    document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
-    showDetail(cached); return;
+  const cached=RETURNS.filter(x=>x.bc===code||x.id===code||x.rma===code||x.track===code||x.id==='@'+code);
+  if(cached.length>0){
+    const unproc=cached.filter(r=>r._raw?.warehouse_details?.processed===false||!r._raw?.warehouse_details);
+    const best=(unproc.length?unproc:cached).sort((a,b)=>new Date(b._raw?.created||0)-new Date(a._raw?.created||0))[0];
+    if(best){curR=best;z.className='sz found';document.getElementById('stitle').textContent='✓ Return Found!';document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';showDetail(best);return;}
   }
   // 2. Live RR lookup if connected
   if(RR_CONFIG.connected){
