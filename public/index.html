@@ -561,12 +561,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         </div>
       </div>
 
-      <div style="text-align:center;padding:8px 0;font-size:11px;color:var(--tx3)">
-        Demo: <span style="font-family:var(--fm);color:var(--Y);cursor:pointer" onclick="demo1()">Single item (Sarah)</span> ·
-        <span style="font-family:var(--fm);color:var(--Y);cursor:pointer" onclick="demo2()">3-item partial (Daniel)</span> ·
-        <span style="font-family:var(--fm);color:var(--Y);cursor:pointer" onclick="demo3()">Damaged (James)</span> ·
-        Press <span style="font-family:var(--fm);color:var(--Y)">F2</span> random
-      </div>
+      
     </div>
 
     <!-- ══ RETURN QUEUE ══ -->
@@ -979,8 +974,8 @@ async function fetchRR(){
     let page = 1;
     let hasMore = true;
     // Fetch all returns from Jan 1, 2026 onwards
-    const DATE_CUTOFF = new Date('2026-01-01T00:00:00Z');
-    const MAX_PAGES = 100; // safety cap — at 50/page = up to 5000 returns
+    const DATE_CUTOFF = new Date('2025-07-01T00:00:00Z');
+    const MAX_PAGES = 400; // load up to 20,000 returns covering full history
 
     while(hasMore && page <= MAX_PAGES){
       const url = `${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${page}`;
