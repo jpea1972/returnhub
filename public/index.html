@@ -961,111 +961,78 @@ function setRRStatus(state){
   if(banner){ banner.style.background=c.bg; banner.style.borderColor=c.bdr; }
 }
 
-// ── FULL SYNC — pull all returns from RR ────────────
-let rrSyncLock=false;
+// ── FULL SYNC — pull all returns from RR (client-side) ──────────
+let rrSyncLock = false;
 async function fetchRR(){
-  if(rrSyncLock){console.log('Sync already running, skipping');return;}
-  rrSyncLock=true;
-  try{
-    await _fetchRRInner();
-  } finally{
-    rrSyncLock=false;
-  }
-}
-async function _fetchRRInner(){
-  if(!RR_CONFIG.connected && RR_CONFIG.lastSync===null){
-    // Not yet connected — render mock data
-    rRR(); return;
-  }
+  if(rrSyncLock){ console.log('sync locked'); return; }
+  if(!RR_CONFIG.connected){ rRR(); return; }
+  rrSyncLock = true;
   setRRStatus('syncing');
+
+  const DATE_CUTOFF = new Date('2025-07-01T00:00:00Z');
+  const MAX_PAGES = 400;
+  let page = 1;
+  let totalLoaded = 0;
+  let hasMore = true;
+
   try {
-    // Paginate through ALL pages to get complete history
-    let allResults = [];
-    let page = 1;
-    let hasMore = true;
-    // Fetch all returns from Jan 1, 2026 onwards
-    const DATE_CUTOFF = new Date('2025-07-01T00:00:00Z');
-    const MAX_PAGES = 400; // load up to 20,000 returns covering full history
-
     while(hasMore && page <= MAX_PAGES){
-      const url = `${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${page}&_t=${Date.now()}`;
-      const res = await fetch(url, { headers: getAuthHeaders(), cache: 'no-store' });
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      // Handle both JSON and raw string responses
-      const text = await res.text();
+      const url = `/api/rr/api/v1/service-requests/?page=${page}&_=${Date.now()}`;
       let data;
-      try { data = JSON.parse(text); } catch(e) {
-        addSyncLog('Parse error','error', text.substring(0,100));
-        hasMore = false; break;
-      }
-
-      // RR returns a plain string if endpoint is wrong
-      if(typeof data === 'string'){
-        addSyncLog('Endpoint error','error','RR returned: '+data);
-        hasMore = false; break;
-      }
-
-      const pageResults = data.results || (Array.isArray(data)?data:[]);
-
-      if(pageResults.length === 0){
-        hasMore = false;
+      try {
+        const res = await fetch(url, {cache:'no-store'});
+        if(!res.ok){ addSyncLog(`Page ${page}`,'error',`HTTP ${res.status}`); break; }
+        data = await res.json();
+      } catch(e){
+        addSyncLog(`Page ${page}`,'error',e.message);
         break;
       }
 
-      // Filter to only Jan 1, 2026 onwards
-      // Returns are sorted newest first — stop when we hit older than cutoff
-      const filtered = [];
+      const results = data.results || [];
+      if(results.length === 0) break;
+
       let hitCutoff = false;
-      for(const r of pageResults){
-        const created = new Date(r.created || r.created_at || 0);
-        if(created >= DATE_CUTOFF){
-          filtered.push(r);
-        } else {
-          hitCutoff = true; // everything after this is older
-        }
+      let added = 0;
+      for(const r of results){
+        const created = new Date(r.created || 0);
+        if(created < DATE_CUTOFF){ hitCutoff = true; break; }
+        const mapped = mapRRReturn(r);
+        const exists = RETURNS.findIndex(x => x.rrid === mapped.rrid);
+        if(exists >= 0) RETURNS[exists] = mapped;
+        else RETURNS.push(mapped);
+        added++;
       }
 
-      allResults = allResults.concat(filtered);
-      addSyncLog(`Page ${page}`,'success',
-        `${filtered.length} in range · ${pageResults.length-filtered.length} skipped (pre-Jan 2026) · total so far: ${allResults.length}`
-      );
+      totalLoaded += added;
+      addSyncLog(`Page ${page}`, 'success',
+        `${added} in range · total so far: ${totalLoaded}`);
 
-      // Stop if we hit the date cutoff or no more pages
-      if(hitCutoff || !data.next){
-        hasMore = false;
-      } else {
-        page++;
-      }
+      if(hitCutoff || !data.next) break;
+      page++;
     }
 
-    if(allResults.length > 0){
-      // Map and merge into RETURNS array — replace everything with fresh data
-      const mapped = allResults.map(mapRRReturn);
-      // Clear demo data — demo data has PFW- prefix, real RR data uses order names like EXC@... or @...
-      const hasDemoData = RETURNS.some(r=>r.id?.startsWith('PFW-'));
-      if(hasDemoData) RETURNS.length = 0;
-      mapped.forEach(r=>{
-        const idx = RETURNS.findIndex(x=>x.track===r.track||x.id===r.id||x.rrid===r.rrid);
-        if(idx>=0) RETURNS[idx]=r; else RETURNS.unshift(r);
-      });
-      updateTopStats(allResults.length);
+    // Remove old demo data
+    const before = RETURNS.length;
+    for(let i = RETURNS.length-1; i>=0; i--){
+      if(RETURNS[i].id?.startsWith('PFW-')) RETURNS.splice(i,1);
     }
 
     RR_CONFIG.lastSync = new Date();
     setRRStatus('connected');
-    const lst = document.getElementById('last-sync-time');
-    if(lst) lst.textContent='Last sync: '+RR_CONFIG.lastSync.toLocaleTimeString();
-    addSyncLog('Full sync','success',`${allResults.length} RMAs loaded across ${page-1} page(s)`);
+    addSyncLog('Full sync','success',`${totalLoaded} RMAs loaded across ${page} page(s)`);
+    toast(`↻ Synced ${totalLoaded} returns`,'s');
     rRR(); rQueue();
-    toast(`↻ Synced ${allResults.length} RMAs from Return Rabbit`,'s');
+    updateTopStats(totalLoaded);
+
   } catch(e){
     setRRStatus('error');
-    toast(`RR sync failed: ${e.message.substring(0,60)}`,'e');
-    addSyncLog('Full sync','error',e.message.substring(0,120));
-    rRR();
+    addSyncLog('Sync error','error', e.message);
+    toast(`Sync failed: ${e.message.substring(0,60)}`,'e');
+  } finally {
+    rrSyncLock = false;
   }
-} // end _fetchRRInner
+}
+
 
 // ── MAP RR PAYLOAD → ReturnHub format ───────────────
 // Field names here match the most common RR API patterns.
