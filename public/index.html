@@ -974,33 +974,57 @@ async function fetchRR(){
   }
   setRRStatus('syncing');
   try {
-    const params = new URLSearchParams({page:1});
-    const res = await fetch(`${RR_CONFIG.baseUrl}/v1/service-requests/?${params}`,{
-      headers: getAuthHeaders(),
-    });
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const list = data.results || (Array.isArray(data)?data:[]);
-    if(list.length > 0){
-      // Map and merge into RETURNS array
-      list.map(mapRRReturn).forEach(r=>{
-        const idx = RETURNS.findIndex(x=>x.track===r.track||x.id===r.id);
+    // Paginate through ALL pages to get complete history
+    let allResults = [];
+    let page = 1;
+    let hasMore = true;
+    const MAX_PAGES = 20; // safety limit — 20 pages × ~20 per page = up to 400 returns
+
+    while(hasMore && page <= MAX_PAGES){
+      const params = new URLSearchParams({page});
+      const res = await fetch(`${RR_CONFIG.baseUrl}/v1/service-requests/?${params}`,{
+        headers: getAuthHeaders(),
+      });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const pageResults = data.results || (Array.isArray(data)?data:[]);
+
+      if(pageResults.length === 0){
+        hasMore = false;
+      } else {
+        allResults = allResults.concat(pageResults);
+        // If RR returns a 'next' URL, there are more pages
+        hasMore = !!data.next;
+        page++;
+      }
+    }
+
+    if(allResults.length > 0){
+      // Map and merge into RETURNS array — replace everything with fresh data
+      const mapped = allResults.map(mapRRReturn);
+      // Clear old mock data on first real sync
+      if(RETURNS.length <= 5 && RETURNS[0]?.id?.startsWith('PFW-')){
+        RETURNS.length = 0; // clear demo data
+      }
+      mapped.forEach(r=>{
+        const idx = RETURNS.findIndex(x=>x.track===r.track||x.id===r.id||x.rrid===r.rrid);
         if(idx>=0) RETURNS[idx]=r; else RETURNS.unshift(r);
       });
-      updateTopStats(list.length);
+      updateTopStats(allResults.length);
     }
+
     RR_CONFIG.lastSync = new Date();
     setRRStatus('connected');
     const lst = document.getElementById('last-sync-time');
     if(lst) lst.textContent='Last sync: '+RR_CONFIG.lastSync.toLocaleTimeString();
-    addSyncLog('Full sync','success',`${list.length} RMAs loaded`);
+    addSyncLog('Full sync','success',`${allResults.length} RMAs loaded across ${page-1} page(s)`);
     rRR(); rQueue();
-    if(list.length > 0) toast(`↻ Synced ${list.length} RMAs from Return Rabbit`,'s');
+    toast(`↻ Synced ${allResults.length} RMAs from Return Rabbit`,'s');
   } catch(e){
     setRRStatus('error');
     toast(`RR sync failed: ${e.message.substring(0,60)}`,'e');
     addSyncLog('Full sync','error',e.message.substring(0,120));
-    rRR(); // render mock data as fallback
+    rRR();
   }
 }
 
