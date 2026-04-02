@@ -1134,8 +1134,17 @@ async function procScanLive(code){
   // 1. Local cache first (fast path)
   const cached=RETURNS.filter(x=>x.bc===code||x.id===code||x.rma===code||x.track===code||x.id==='@'+code);
   if(cached.length>0){
-    const unproc=cached.filter(r=>r._raw?.warehouse_details?.processed===false||!r._raw?.warehouse_details);
-    const best=(unproc.length?unproc:cached).sort((a,b)=>new Date(b._raw?.created||0)-new Date(a._raw?.created||0))[0];
+    const isTrack=/^[0-9]{10,30}$/.test(code);
+    // Skip returns already processed by our team this session
+    const alreadyDone=new Set(PROCESSED_LOG.map(r=>r.orderId));
+    const fresh=cached.filter(r=>!alreadyDone.has(r.id));
+    const pool=fresh.length>0?fresh:cached;
+    // Tracking: oldest = package at dock. Order ID: newest first
+    const best=pool.sort((a,b)=>{
+      const da=new Date(a._raw?.created||a.date||0);
+      const db=new Date(b._raw?.created||b.date||0);
+      return isTrack?da-db:db-da;
+    })[0];
     if(best){curR=best;z.className='sz found';document.getElementById('stitle').textContent='✓ Return Found!';document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';showDetail(best);return;}
   }
   // 2. Live RR lookup if connected
