@@ -1132,7 +1132,21 @@ async function procScanLive(code){
   if(!code) return;
   const z = document.getElementById('sz');
   // 1. Local cache first (fast path)
-  // ── Scan logic: live 90-day lookup with duplicate picker ──
+  // ── Normalize barcode: strip USPS delivery point prefix ──
+  // Full scan reads as: 42{ZIP}{tracking} e.g. 420852869400150106151080498097
+  // Real tracking starts with 94,92,93,94,70,82 and is 20-22 digits
+  let normalizedCode = code;
+  if(/^[0-9]{26,34}$/.test(code)){
+    // Look for USPS tracking number embedded in longer barcode
+    const trackMatch = code.match(/(9[0-9]{21}|9[0-9]{19})/);
+    if(trackMatch) {
+      normalizedCode = trackMatch[0];
+      console.log('Stripped USPS prefix:',code,'->',normalizedCode);
+    }
+  }
+  code = normalizedCode;
+
+  // ── Scan logic: hybrid cache + live lookup ──
   const isTrack=/^[0-9]{10,30}$/.test(code);
   const alreadyDone=new Set((typeof PROCESSED_LOG!=="undefined"?PROCESSED_LOG:[]).map(r=>r.orderId));
   const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-90);
@@ -1178,11 +1192,39 @@ async function procScanLive(code){
       }
 
       if(matches.length===0){
-        // Not found in 90 days
+        // Not found in live pages 1-5 — fall back to cache (covers synced history)
+        document.getElementById('stitle').textContent='🔍 Checking local cache…';
+        const cached=RETURNS.filter(x=>
+          (isTrack && x.track===code && x.track!=='—' && x.track!=='') ||
+          (!isTrack && (x.id===code||x.rma===code||x.id==='@'+code))
+        );
+        const alreadyDoneSet=new Set((typeof PROCESSED_LOG!=="undefined"?PROCESSED_LOG:[]).map(r=>r.orderId));
+        const freshCached=cached.filter(r=>!alreadyDoneSet.has(r.id));
+        const pool=freshCached.length>0?freshCached:cached;
+
+        if(pool.length===1){
+          const r=pool[0];
+          curR=r;z.className='sz found';
+          document.getElementById('stitle').textContent='✓ Return Found! (from cache)';
+          document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
+          showDetail(r); return;
+        } else if(pool.length>1){
+          // Multiple cache matches — show picker
+          const rawMatches=pool.map(r=>r._raw).filter(Boolean);
+          if(rawMatches.length>0){ showScanPicker(rawMatches,code); return; }
+          // Fallback — just pick oldest
+          const best=pool.sort((a,b)=>new Date(a._raw?.created||0)-new Date(b._raw?.created||0))[0];
+          curR=best;z.className='sz found';
+          document.getElementById('stitle').textContent='✓ Return Found!';
+          document.getElementById('ssub').textContent='Check each item received · leave unchecked = NOT returned';
+          showDetail(best); return;
+        }
+
+        // Truly not found anywhere
         z.className='sz err';
         document.getElementById('stitle').textContent='✗ Not Found';
-        document.getElementById('ssub').textContent='No return found in last 90 days · try typing the order number (e.g. @702162)';
-        setTimeout(()=>{z.className='sz';document.getElementById('stitle').textContent='Ready to Scan';document.getElementById('ssub').textContent='Point scanner at shipping label · click and type · F2 = demo scan';},3000);
+        document.getElementById('ssub').textContent='Try typing the order number from the label (e.g. @702162)';
+        setTimeout(()=>{z.className='sz';document.getElementById('stitle').textContent='Ready to Scan';document.getElementById('ssub').textContent='Point scanner at shipping label · click and type · F2 = demo scan';},3500);
         return;
       }
 
