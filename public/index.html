@@ -988,8 +988,8 @@ async function _fetchRRInner(){
     const MAX_PAGES = 400; // load up to 20,000 returns covering full history
 
     while(hasMore && page <= MAX_PAGES){
-      const url = `${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${page}`;
-      const res = await fetch(url, { headers: getAuthHeaders() });
+      const url = `${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${page}&_t=${Date.now()}`;
+      const res = await fetch(url, { headers: getAuthHeaders(), cache: 'no-store' });
       if(!res.ok) throw new Error(`HTTP ${res.status}`);
 
       // Handle both JSON and raw string responses
@@ -1183,7 +1183,7 @@ async function procScanLive(code){
         let data;
         try{
           const res=await Promise.race([
-            fetch(`${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${p}`,{headers:getAuthHeaders()}),
+            fetch(`${RR_CONFIG.baseUrl}/api/v1/service-requests/?page=${p}&_t=${Date.now()}`,{headers:getAuthHeaders(),cache:'no-store'}),
             new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000))
           ]);
           if(!res.ok) break;
