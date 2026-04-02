@@ -921,7 +921,7 @@ async function testRRConnection(){
       throw new Error('RR_TOKEN not in server .env — add it and restart');
     }
     // 2. Try a live call through the proxy
-    const rrRes = await fetch(`${RR_CONFIG.baseUrl}/returns?limit=1`, {
+    const rrRes = await fetch(`${RR_CONFIG.baseUrl}/v1/service-requests/?page=1`, {
       headers: getAuthHeaders(),
     });
     if(rrRes.ok){
@@ -974,13 +974,13 @@ async function fetchRR(){
   }
   setRRStatus('syncing');
   try {
-    const params = new URLSearchParams({limit:100, page:1});
-    const res = await fetch(`${RR_CONFIG.baseUrl}/returns?${params}`,{
+    const params = new URLSearchParams({page:1});
+    const res = await fetch(`${RR_CONFIG.baseUrl}/v1/service-requests/?${params}`,{
       headers: getAuthHeaders(),
     });
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const list = Array.isArray(data)?data:(data.results||data.data||data.returns||[]);
+    const list = data.results || (Array.isArray(data)?data:[]);
     if(list.length > 0){
       // Map and merge into RETURNS array
       list.map(mapRRReturn).forEach(r=>{
@@ -1008,42 +1008,62 @@ async function fetchRR(){
 // Field names here match the most common RR API patterns.
 // If fields come in differently, adjust the fallback chain (||).
 function mapRRReturn(rma){
-  const lineItems = rma.line_items || rma.items || rma.return_items || rma.returnItems || [];
+  // Field names from Return Rabbit API v1/service-requests/
+  const lineItems = rma.line_items || [];
   const items = lineItems.map(li=>({
-    sku:   li.sku || li.variant_sku || li.product_sku || '—',
-    desc:  li.title || li.product_title || li.variant_title || li.name || '—',
-    qty:   parseInt(li.quantity || li.qty || 1),
-    image: li.image_url || li.image || li.featured_image || li.product_image || '',
-    price: parseFloat(li.price || li.unit_price || 0),
+    sku:   li.sku || '—',
+    desc:  [li.product_name, li.variant].filter(Boolean).join(' - ') || li.name || '—',
+    qty:   parseInt(li.quantity || 1),
+    image: li.image_url || li.product_image || '',
+    price: parseFloat(li.payment_detail?.amount || rma.amount || 0),
   }));
-  const shipRaw = rma.shopify_order?.fulfilled_at || rma.fulfilled_at || rma.shipped_at || rma.shipment_date || null;
-  const rmaRaw  = rma.created_at || rma.submitted_at || rma.rma_created_at || null;
-  let daysHeld = 0;
-  if(shipRaw && rmaRaw){
-    daysHeld = Math.max(0, Math.round((new Date(rmaRaw)-new Date(shipRaw))/86400000));
-  }
-  const statusMap={
-    open:'pending',approved:'pending',pending:'pending',
-    label_created:'pending',in_transit:'pending',
-    received:'arrived',arrived:'arrived',delivered:'arrived',
-    completed:'processed',refunded:'processed',closed:'processed',
-    rejected:'flagged',cancelled:'flagged',
+
+  // Tracking from fulfillment_details
+  const tracking = rma.fulfillment_details?.tracking_number || '';
+
+  // Customer from shipping_information
+  const ship = rma.shipping_information || {};
+  const custName = ship.name || [ship.first_name, ship.last_name].filter(Boolean).join(' ') || ship.email || '—';
+
+  // Status mapping from RR statuses
+  const rrStatus = (rma.status || '').toLowerCase();
+  const statusMap = {
+    'pending delivery':  'pending',
+    'pending':           'pending',
+    'label created':     'pending',
+    'in transit':        'pending',
+    'out for delivery':  'pending',
+    'delivered':         'arrived',
+    'received':          'arrived',
+    'processing':        'arrived',
+    'completed':         'processed',
+    'refunded':          'processed',
+    'closed':            'processed',
+    'cancelled':         'flagged',
+    'rejected':          'flagged',
   };
+
+  // Try to calculate days held from warehouse_details or created date
+  const rmaRaw = rma.created || rma.created_at || null;
   const fmtDate = raw => raw ? new Date(raw).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+
+  // Get reason from first line item
+  const reason = lineItems[0]?.reason || '—';
+
   return {
-    id:       rma.order_name || rma.order_number || `#${rma.order_id}` || rma.id || '—',
-    bc:       rma.tracking_number || rma.tracking || rma.return_label?.tracking_number || '',
-    cust:     rma.customer?.name || [rma.customer?.first_name,rma.customer?.last_name].filter(Boolean).join(' ') || rma.customer_name || rma.customer_email || '—',
-    items,
-    reason:   rma.reason || rma.return_reason || rma.exchange_reason || rma.reason_category || '—',
-    rma:      rma.rma_number || rma.name || `RMA-${String(rma.id).substring(0,8)}`,
+    id:       rma.order || rma.ecom_order_id || rma.name || rma.id || '—',
+    bc:       tracking,
+    cust:     custName,
+    items:    items.length > 0 ? items : [{sku:'—',desc:'No items',qty:1,image:'',price:0}],
+    reason:   reason,
+    rma:      rma.name || `RMA-${String(rma.id).substring(0,8)}`,
     rrid:     `RR-${rma.id}`,
-    track:    rma.tracking_number || rma.tracking || '—',
+    track:    tracking || '—',
     date:     fmtDate(rmaRaw),
-    shipDate: shipRaw ? fmtDate(shipRaw) : 'Not in RR',
-    daysHeld,
-    status:   statusMap[(rma.status||'').toLowerCase()] || 'pending',
-    val:      items.reduce((s,li)=>s+li.price,0),
+    shipDate: rma.fulfillment_details?.status === 'DELIVERED' ? 'Delivered' : 'In Transit',
+    daysHeld: 0,
+    status:   statusMap[rrStatus] || 'pending',
+    val:      Math.abs(parseFloat(rma.amount || 0)),
     photo:    items[0]?.image || '',
     _raw:     rma,
   };
@@ -1066,7 +1086,7 @@ async function procScanLive(code){
     document.getElementById('stitle').textContent='🔍 Looking up in Return Rabbit…';
     document.getElementById('ssub').textContent='Querying returnrabbit.app for: '+code;
     try {
-      const res = await fetch(`${RR_CONFIG.baseUrl}/returns?tracking=${encodeURIComponent(code)}`,{
+      const res = await fetch(`${RR_CONFIG.baseUrl}/v1/service-requests/?page=1`,{
         headers:getAuthHeaders(),
       });
       if(res.ok){
