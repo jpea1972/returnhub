@@ -1329,7 +1329,8 @@ let rrSyncTimer = null;
 function startAutoSync(){
   if(rrSyncTimer) clearInterval(rrSyncTimer);
   const s = parseInt(document.getElementById('rr-sync-interval')?.value||'60');
-  if(s>0 && RR_CONFIG.connected) rrSyncTimer = setInterval(fetchRR, s*1000);
+  // Auto-sync disabled — use Sync Now button to avoid request flooding
+  // if(s>0 && RR_CONFIG.connected) rrSyncTimer = setInterval(fetchRR, s*1000);
 }
 
 // ══════════════════════════════════════════════
@@ -1351,6 +1352,8 @@ function doLogin(){
     document.getElementById('sav').textContent=cu.i;document.getElementById('sav').style.background=cu.c+'22';document.getElementById('sav').style.color=cu.c;
     document.getElementById('sname').textContent=cu.n;document.getElementById('srole').textContent=cu.role;
     initApp();toast('👋 Welcome, '+cu.n,'s');
+    // Sync once on login
+    setTimeout(()=>{if(!rrSyncLock)fetchRR();},2000);
   }else{document.getElementById('pin').style.borderColor='var(--R)';document.getElementById('pin').value='';setTimeout(()=>document.getElementById('pin').style.borderColor='',1200);toast('Wrong PIN','e');}
 }
 document.getElementById('pin').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
