@@ -726,6 +726,44 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
       <div id="merch-list"></div>
     </div>
 
+
+    <!-- RR INTEGRATION TAB -->
+    <div class="sec" id="tab-rrsettings">
+      <div style="font-family:var(--fd);font-size:17px;font-weight:700;margin-bottom:4px">Return Rabbit Integration</div>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:18px">Connect ReturnHub to Return Rabbit for Paragonfitwear</div>
+      <div id="rr-conn-banner" style="border-radius:var(--rl);padding:13px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;font-size:13px;background:rgba(74,82,112,.15);border:1px solid var(--b2)">
+        <div id="rr-banner-dot" style="width:10px;height:10px;border-radius:50%;background:var(--tx3);flex-shrink:0"></div>
+        <div style="flex:1"><strong id="rr-banner-title">Checking connection…</strong><div id="rr-banner-sub" style="color:var(--tx2);margin-top:3px;font-size:12px">Connecting to Return Rabbit via server proxy</div></div>
+        <div style="display:flex;gap:7px">
+          <button class="btn bs sm" onclick="testRRConnection()">Test Connection</button>
+          <button class="btn bY sm" onclick="fetchRR()">↻ Sync Now</button>
+        </div>
+      </div>
+      <div class="g2" style="margin-bottom:16px">
+        <div class="card"><div class="ch"><div class="ctitle">API Credentials</div></div><div class="cbody">
+          <div class="fg"><label class="fl">Base API URL</label><input class="fi" id="rr-base-url" value="https://api.returnrabbit.app" readonly style="color:var(--tx3)"></div>
+          <div class="fg"><label class="fl">API Token</label><input class="fi" id="rr-token" value="Configured in Railway Variables → RR_TOKEN" readonly style="color:var(--tx3);font-size:11px"></div>
+          <div class="fg" style="margin-bottom:0"><label class="fl">Store</label><input class="fi" id="rr-store" value="paragonfitwear"></div>
+          <button class="btn bY" style="width:100%;justify-content:center;margin-top:12px" onclick="saveRRToken()">Test &amp; Connect</button>
+        </div></div>
+        <div class="card"><div class="ch"><div class="ctitle">Sync Settings</div></div><div class="cbody">
+          <div class="fg"><label class="fl">Auto-sync interval</label>
+            <select class="fsel" id="rr-sync-interval"><option value="30">Every 30 seconds</option><option value="60" selected>Every 60 seconds</option><option value="300">Every 5 minutes</option><option value="0">Manual only</option></select>
+          </div>
+          <div class="fg"><label class="fl">Pull statuses</label>
+            <div style="display:flex;flex-direction:column;gap:7px;margin-top:4px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="sync-open" checked style="accent-color:var(--Y);width:14px;height:14px"> Open / Pending</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="sync-transit" checked style="accent-color:var(--Y);width:14px;height:14px"> In Transit</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="sync-received" checked style="accent-color:var(--Y);width:14px;height:14px"> Received / Arrived</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="sync-completed" style="accent-color:var(--Y);width:14px;height:14px"> Completed</label>
+            </div>
+          </div>
+        </div></div>
+      </div>
+      <div class="card"><div class="ch"><div class="ctitle">API Endpoint Reference</div></div><div class="cbody" id="endpoint-list"></div></div>
+      <div class="card" style="margin-top:14px"><div class="ch"><div class="ctitle">Sync Log</div><span id="last-sync-time" style="font-size:11px;color:var(--tx3)">Never synced</span></div><div class="cbody" id="sync-log"><div style="font-size:13px;color:var(--tx3);text-align:center;padding:20px">No sync history yet</div></div></div>
+    </div>
+
     <!-- ══ USERS ══ -->
     <div class="sec" id="tab-users">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-family:var(--fd);font-size:16px;font-weight:700">Users &amp; Access</div><button class="btn bY">+ Add User</button></div>
@@ -1185,9 +1223,34 @@ function logout(){cu=null;document.getElementById('ls').style.display='flex';doc
 // ══════════════════════════════════════════════
 // INIT / NAV
 // ══════════════════════════════════════════════
-function initApp(){updateClock();rQueue();rRR();rFlags();renderBilling();rPrinters();renderBI();renderDH();renderMerchants();renderUsers();renderEmailDisplay();popPSel();renderEndpointList();setRRStatus('disconnected');startAutoSync();}
+function initApp(){
+  updateClock();
+  rQueue();
+  rRR();
+  rFlags();
+  renderBilling();
+  rPrinters();
+  renderBI();
+  renderDH();
+  renderMerchants();
+  renderUsers();
+  renderEmailDisplay();
+  popPSel();
+  // RR status updated only when RR Integration tab is visible
+  setTimeout(()=>{ renderEndpointList(); setRRStatus('disconnected'); }, 200);
+}
 const TITLES={scan:'Scan & Process',rrsettings:'Return Rabbit Integration',queue:'Return Queue',rr:'Return Rabbit Feed',flags:'Discrepancy Report',bi:'Launch & Promo BI',dh:'Days Held Analysis',billing:'Billing & Invoices',email:'Email Reports',printers:'Printer Manager',merchants:'Merchants',users:'Users & Access'};
-function nav(id){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('tab-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');document.getElementById('ptitle').textContent=TITLES[id]||id;}
+function nav(id){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  const tabEl = document.getElementById('tab-'+id);
+  const navEl = document.getElementById('nav-'+id);
+  if(tabEl) tabEl.classList.add('active');
+  if(navEl) navEl.classList.add('active');
+  document.getElementById('ptitle').textContent=TITLES[id]||id;
+  // Lazy-init RR tab when opened
+  if(id==='rrsettings'){ renderEndpointList(); setRRStatus(RR_CONFIG.connected?'connected':'disconnected'); }
+}
 function updateClock(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
 setInterval(updateClock,1000);
 
