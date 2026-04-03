@@ -1245,7 +1245,7 @@ async function sendPrint(){
   if(btn){ btn.textContent='Printing…'; btn.disabled=true; }
 
   try {
-    const res = await fetch('http://192.168.120.13:5000/print', {
+    const res = await fetch('https://192.168.120.13:3001/print', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
