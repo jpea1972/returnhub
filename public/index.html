@@ -321,6 +321,21 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <div id="pinsec" style="display:none">
       <div style="font-size:12px;color:var(--tx2);margin-bottom:8px" id="pinlbl">Enter PIN</div>
       <input class="pin-in" id="pin" type="password" maxlength="4" placeholder="····" autocomplete="off">
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:6px">Select Station</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+          <div class="uc" id="sta-a" onclick="selStation('A')" style="padding:10px;border:2px solid var(--b2);transition:border-color .15s;cursor:pointer">
+            <div style="font-size:20px;margin-bottom:3px">🖨</div>
+            <div style="font-size:12px;font-weight:700">Station A</div>
+            <div style="font-size:10px;color:var(--tx3)">ZD420</div>
+          </div>
+          <div class="uc" id="sta-b" onclick="selStation('B')" style="padding:10px;border:2px solid var(--b2);transition:border-color .15s;cursor:pointer">
+            <div style="font-size:20px;margin-bottom:3px">🖨</div>
+            <div style="font-size:12px;font-weight:700">Station B</div>
+            <div style="font-size:10px;color:var(--tx3)">ZD621</div>
+          </div>
+        </div>
+      </div>
       <button class="btn bY" style="width:100%;justify-content:center;margin-bottom:7px" onclick="doLogin()">Sign In →</button>
       <button class="btn bs" style="width:100%;justify-content:center" onclick="cancelLogin()">← Back</button>
     </div>
@@ -1434,7 +1449,18 @@ function buildUCards(){
     </div>`).join('');
 }
 function selU2(id){selU=USERS.find(u=>u.id===id);document.getElementById('ucards').style.display='none';document.getElementById('pinsec').style.display='block';document.getElementById('pinlbl').innerHTML=`PIN for <strong style="color:var(--Y)">${selU.n}</strong>`;document.getElementById('pin').value='';document.getElementById('pin').focus();}
-function cancelLogin(){selU=null;document.getElementById('ucards').style.display='grid';document.getElementById('pinsec').style.display='none';}
+function selStation(s){
+  selStation_val = s;
+  document.getElementById('sta-a').style.borderColor = s==='A' ? 'var(--Y)' : 'var(--b2)';
+  document.getElementById('sta-b').style.borderColor = s==='B' ? 'var(--Y)' : 'var(--b2)';
+}
+function cancelLogin(){
+  selU=null; selStation_val=null;
+  document.getElementById('ucards').style.display='grid';
+  document.getElementById('pinsec').style.display='none';
+  if(document.getElementById('sta-a')) document.getElementById('sta-a').style.borderColor='var(--b2)';
+  if(document.getElementById('sta-b')) document.getElementById('sta-b').style.borderColor='var(--b2)';
+}
 function doLogin(){
   if(document.getElementById('pin').value===selU.pin){
     cu=selU;document.getElementById('ls').style.display='none';document.getElementById('sb').style.display='flex';document.getElementById('app').style.display='flex';
@@ -1445,7 +1471,25 @@ function doLogin(){
   }else{document.getElementById('pin').style.borderColor='var(--R)';document.getElementById('pin').value='';setTimeout(()=>document.getElementById('pin').style.borderColor='',1200);toast('Wrong PIN','e');}
 }
 document.getElementById('pin').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-function logout(){cu=null;rrSyncLock=false;document.getElementById('ls').style.display='flex';document.getElementById('sb').style.display='none';document.getElementById('app').style.display='none';document.getElementById('ucards').style.display='grid';document.getElementById('pinsec').style.display='none';}
+async function logout(){
+  if(dbSessionId){
+    try {
+      await fetch('/api/db/sessions/'+dbSessionId+'/end',{
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ total_returns: myCount })
+      });
+    } catch(e){ console.error('[Logout]',e); }
+  }
+  cu=null; dbSessionId=null; dbWorkerId=null; selStation_val=null;
+  rrSyncLock=false; RETURNS.length=0; RETURNS_INDEX={}; PROCESSED_LOG=[];
+  document.getElementById('ls').style.display='flex';
+  document.getElementById('sb').style.display='none';
+  document.getElementById('app').style.display='none';
+  document.getElementById('ucards').style.display='grid';
+  document.getElementById('pinsec').style.display='none';
+  if(document.getElementById('sta-a')) document.getElementById('sta-a').style.borderColor='var(--b2)';
+  if(document.getElementById('sta-b')) document.getElementById('sta-b').style.borderColor='var(--b2)';
+}
 
 // ══════════════════════════════════════════════
 // INIT / NAV
