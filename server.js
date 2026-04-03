@@ -35,6 +35,8 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ── SECURITY ──────────────────────────────────────────
+app.set('trust proxy', 1); // Required for Railway proxy / express-rate-limit
+
 app.use(helmet({
   contentSecurityPolicy: false,
 }));
