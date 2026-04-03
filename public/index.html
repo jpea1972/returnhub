@@ -484,10 +484,10 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <!-- ══ SCAN & PROCESS ══ -->
     <div class="sec active" id="tab-scan">
       <div class="srow s5" style="margin-bottom:14px">
-        <div class="sc g"><div class="sl">Today's Returns</div><div class="sv cg" id="s1">47</div><div class="subs">+12 this hour</div></div>
-        <div class="sc b"><div class="sl">Processed</div><div class="sv cb" id="s2">31</div><div class="subs">66% done</div></div>
-        <div class="sc a"><div class="sl">Pending</div><div class="sv ca" id="s3">16</div><div class="subs">Awaiting scan</div></div>
-        <div class="sc r"><div class="sl">Discrepancies</div><div class="sv cr" id="s4">3</div><div class="subs">Flagged for Paragon</div></div>
+        <div class="sc g"><div class="sl">Today's Returns</div><div class="sv cg" id="s1">0</div><div class="subs">+12 this hour</div></div>
+        <div class="sc b"><div class="sl">Processed</div><div class="sv cb" id="s2">0</div><div class="subs">66% done</div></div>
+        <div class="sc a"><div class="sl">Pending</div><div class="sv ca" id="s3">0</div><div class="subs">Awaiting scan</div></div>
+        <div class="sc r"><div class="sl">Discrepancies</div><div class="sv cr" id="s4">0</div><div class="subs">Flagged for Paragon</div></div>
         <div class="sc y"><div class="sl">Your Count</div><div class="sv cy" id="s5">0</div><div class="subs" id="s5s">This session</div></div>
       </div>
 
@@ -569,10 +569,10 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <div class="sec" id="tab-queue">
       <div style="display:flex;gap:6px;margin-bottom:13px;flex-wrap:wrap;align-items:center">
         <div style="display:flex;gap:5px;flex-wrap:wrap" id="qf">
-          <button class="btn bs sm" onclick="fQ('all',this)" style="border-color:var(--Y);color:var(--Y)">All (47)</button>
-          <button class="btn bs sm" onclick="fQ('pending',this)">Pending (16)</button>
-          <button class="btn bs sm" onclick="fQ('processed',this)">Processed (31)</button>
-          <button class="btn bs sm" onclick="fQ('flagged',this)">Flagged (5)</button>
+          <button class="btn bs sm" onclick="fQ('all',this)" style="border-color:var(--Y);color:var(--Y)" id="qf-all">All (0)</button>
+          <button class="btn bs sm" onclick="fQ('pending',this)" id="qf-pending">Pending (0)</button>
+          <button class="btn bs sm" onclick="fQ('processed',this)" id="qf-processed">Processed (0)</button>
+          <button class="btn bs sm" onclick="fQ('flagged',this)" id="qf-flagged">Flagged (0)</button>
         </div>
         <button class="btn bY sm" style="margin-left:auto" onclick="om('emo')">📧 Send Report</button>
       </div>
@@ -585,10 +585,10 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <div class="sec" id="tab-rr">
       <div style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);border-radius:var(--rl);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--B)">ℹ Connected to <strong>returnrabbit.app</strong> — syncs automatically when customers submit returns at paragonfitwear.com/returns.</div>
       <div class="srow s4" style="margin-bottom:14px">
-        <div class="sc b"><div class="sl">Open RMAs</div><div class="sv cb">20</div><div class="subs">Active in RR</div></div>
-        <div class="sc a"><div class="sl">In Transit</div><div class="sv ca">12</div><div class="subs">Inbound</div></div>
-        <div class="sc g"><div class="sl">Arrived Today</div><div class="sv cg">19</div><div class="subs">At warehouse</div></div>
-        <div class="sc y"><div class="sl">Completed</div><div class="sv cy">31</div><div class="subs">Restocked</div></div>
+        <div class="sc b"><div class="sl">Open RMAs</div><div class="sv cb" id="rr-open">0</div><div class="subs">Active in RR</div></div>
+        <div class="sc a"><div class="sl">In Transit</div><div class="sv ca" id="rr-transit">0</div><div class="subs">Inbound</div></div>
+        <div class="sc g"><div class="sl">Arrived Today</div><div class="sv cg" id="rr-arrived">0</div><div class="subs">At warehouse</div></div>
+        <div class="sc y"><div class="sl">Completed</div><div class="sv cy" id="rr-completed">0</div><div class="subs">Restocked</div></div>
       </div>
       <div class="card"><div class="ch"><div class="ctitle">🐇 Return Rabbit — Live RMA Feed</div><div style="display:flex;gap:7px"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2)"><div class="sdot g"></div>returnrabbit.app</div><button class="btn bs sm" onclick="fetchRR()">↻ Refresh</button></div></div>
         <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>RR ID</th><th>Order</th><th>Customer</th><th>Photo</th><th>SKU</th><th>Description</th><th>Qty</th><th>Value</th><th>Ship Date</th><th>Days Held</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead><tbody id="rrtbody"></tbody></table></div>
@@ -795,71 +795,13 @@ let printers=[
 //   rcvQty: number, dmgChecks: [], dmgNotes: '', dmgDisp: '', wrongNotes: '' }
 let itemStates = {};
 
-const RETURNS=[
-  {id:'PFW-10042',bc:'9400111899223344556600',cust:'Sarah Mitchell',
-   items:[{sku:'PFW-BLK-LGG-XS-001',desc:'High-Waist Legging - Black - XS',qty:1}],
-   reason:'Wrong Size',rma:'RMA-8821',rrid:'RR-44271',track:'9400111899223344556600',
-   date:'Apr 1',shipDate:'Feb 14, 2026',daysHeld:45,status:'arrived',val:68,
-   photo:'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=200&q=80'},
+const RETURNS=[];
 
-  {id:'PFW-10039',bc:'9400111899223344557711',cust:'James Chen',
-   items:[{sku:'PFW-NVY-SPRT-M-002',desc:'Sport Shorts - Navy - M',qty:2}],
-   reason:'Defective',rma:'RMA-8819',rrid:'RR-44268',track:'9400111899223344557711',
-   date:'Apr 1',shipDate:'Jan 30, 2026',daysHeld:59,status:'pending',val:44,
-   photo:'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=200&q=80'},
+let FLAGS=[];
 
-  {id:'PFW-10025',bc:'9400111899223344552255',cust:'Daniel Park',
-   items:[
-     {sku:'PFW-BLU-TANK-S-006',  desc:'Performance Tank - Blue - S',  qty:1},
-     {sku:'PFW-BLU-SHORT-S-006B',desc:'Matching Shorts - Blue - S',   qty:1},
-     {sku:'PFW-BLU-BRA-S-006C',  desc:'Sports Bra - Blue - S',        qty:1},
-   ],
-   reason:'Wrong Color',rma:'RMA-8805',rrid:'RR-44233',track:'9400111899223344552255',
-   date:'Mar 31',shipDate:'Feb 28, 2026',daysHeld:31,status:'flagged',val:36,
-   photo:'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&q=80'},
+const DAYS_HELD=[];
 
-  {id:'PFW-10031',bc:'9400111899223344559933',cust:'Marcus Thompson',
-   items:[{sku:'PFW-GRY-HOODIE-XL-004',desc:'Fitted Hoodie - Grey - XL',qty:1}],
-   reason:'Wrong Size',rma:'RMA-8811',rrid:'RR-44250',track:'9400111899223344559933',
-   date:'Mar 31',shipDate:'Jan 15, 2026',daysHeld:75,status:'processed',val:88,
-   photo:'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=200&q=80'},
-
-  {id:'PFW-10022',bc:'1Z999AA10123456784',cust:'Lisa Wang',
-   items:[{sku:'PFW-RED-SET-M-007',desc:'Matching Set - Red - M',qty:1}],
-   reason:'Wrong Size',rma:'RMA-8802',rrid:'RR-44219',track:'1Z999AA10123456784',
-   date:'Mar 30',shipDate:'Mar 1, 2026',daysHeld:29,status:'flagged',val:112,
-   photo:'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=200&q=80'},
-];
-
-let FLAGS=[
-  {type:'Damaged',oid:'PFW-10039',rrid:'RR-44268',cust:'James Chen',sku:'PFW-NVY-SPRT-M-002',desc:'Sport Shorts - Navy - M',expQty:2,rcvQty:2,missing:0,disp:'Damage Out — Dispose',notes:'Torn seam both units. Manufacturing defect.',days:59,date:'Apr 1',status:'open'},
-  {type:'Partial',oid:'PFW-10025',rrid:'RR-44233',cust:'Daniel Park',sku:'PFW-BLU-TANK-S-006',desc:'Performance Tank - Blue - S',expQty:3,rcvQty:1,missing:2,disp:'Hold',notes:'Only 1 of 3 units arrived. Customer contacted.',days:31,date:'Mar 31',status:'open'},
-  {type:'Wrong Product',oid:'PFW-10022',rrid:'RR-44219',cust:'Lisa Wang',sku:'PFW-RED-SET-M-007',desc:'Matching Set - Red - M',expQty:1,rcvQty:1,missing:0,disp:'Quarantine',notes:'Not a Paragonfitwear product.',days:29,date:'Mar 30',status:'open'},
-];
-
-const DAYS_HELD=[
-  {oid:'PFW-10042',cust:'Sarah Mitchell',sku:'PFW-BLK-LGG-XS-001',prod:'High-Waist Legging - Black - XS',ship:'Feb 14, 2026',rma:'Mar 28, 2026',days:42,reason:'Wrong Size',cond:'Good',outcome:'Restocked'},
-  {oid:'PFW-10039',cust:'James Chen',sku:'PFW-NVY-SPRT-M-002',prod:'Sport Shorts - Navy - M',ship:'Jan 30, 2026',rma:'Mar 29, 2026',days:58,reason:'Defective',cond:'Damaged',outcome:'Damage Out'},
-  {oid:'PFW-10035',cust:'Emily Rossi',sku:'PFW-WHT-CROP-S-003',prod:'Crop Top - White - S',ship:'Feb 20, 2026',rma:'Apr 1, 2026',days:40,reason:'Changed Mind',cond:'Good',outcome:'Restocked'},
-  {oid:'PFW-10031',cust:'Marcus Thompson',sku:'PFW-GRY-HOODIE-XL-004',prod:'Fitted Hoodie - Grey - XL',ship:'Jan 15, 2026',rma:'Mar 31, 2026',days:75,reason:'Wrong Size',cond:'Good',outcome:'Restocked'},
-  {oid:'PFW-10028',cust:'Priya Sharma',sku:'PFW-BLK-BRA-M-005',prod:'Sports Bra - Black - M',ship:'Feb 10, 2026',rma:'Mar 31, 2026',days:49,reason:'Damaged Ship',cond:'Damaged',outcome:'Damage Out'},
-  {oid:'PFW-10025',cust:'Daniel Park',sku:'PFW-BLU-TANK-S-006',prod:'Performance Tank - Blue - S',ship:'Feb 28, 2026',rma:'Mar 31, 2026',days:31,reason:'Wrong Color',cond:'Partial',outcome:'Hold'},
-  {oid:'PFW-10022',cust:'Lisa Wang',sku:'PFW-RED-SET-M-007',prod:'Matching Set - Red - M',ship:'Mar 1, 2026',rma:'Mar 30, 2026',days:29,reason:'Wrong Size',cond:'Wrong Item',outcome:'Quarantine'},
-  {oid:'PFW-10019',cust:'Robert Kim',sku:'PFW-GRN-LGNG-L-008',prod:'Legging - Olive - L',ship:'Jan 20, 2026',rma:'Mar 30, 2026',days:69,reason:'Defective',cond:'Not Received',outcome:'Investigate'},
-  {oid:'PFW-10015',cust:'Angela Torres',sku:'PFW-CRL-LGNG-M-009',prod:'Legging - Coral - M',ship:'Feb 5, 2026',rma:'Mar 28, 2026',days:51,reason:'Wrong Size',cond:'Good',outcome:'Restocked'},
-  {oid:'PFW-10011',cust:'David Liu',sku:'PFW-BLK-SET-S-010',prod:'Matching Set - Black - S',ship:'Jan 25, 2026',rma:'Mar 27, 2026',days:61,reason:'Changed Mind',cond:'Good',outcome:'Restocked'},
-];
-
-const BI_DATA=[
-  {prod:'High-Waist Legging (All Colors)',date:'Jan 10',promo:false,shipped:10000,returned:820,good:610,damaged:140,missing:70,avgDays:48,topReason:'Wrong Size',assess:'INVESTIGATE'},
-  {prod:'Sport Shorts — Spring Launch',date:'Jan 25',promo:true,shipped:5000,returned:620,good:400,damaged:180,missing:40,avgDays:52,topReason:'Defective',assess:'ACTION REQUIRED'},
-  {prod:'Crop Top Collection',date:'Feb 15',promo:false,shipped:3000,returned:180,good:165,damaged:10,missing:5,avgDays:38,topReason:'Changed Mind',assess:'HEALTHY'},
-  {prod:'Fitted Hoodie Drop',date:'Jan 12',promo:true,shipped:8000,returned:980,good:720,damaged:180,missing:80,avgDays:62,topReason:'Wrong Size',assess:'INVESTIGATE'},
-  {prod:'Sports Bra — New Fit Tech',date:'Feb 8',promo:true,shipped:4500,returned:810,good:510,damaged:260,missing:40,avgDays:46,topReason:'Defective',assess:'ACTION REQUIRED'},
-  {prod:'Performance Tank Q1',date:'Feb 25',promo:false,shipped:2500,returned:95,good:82,damaged:8,missing:5,avgDays:33,topReason:'Wrong Color',assess:'HEALTHY'},
-  {prod:'Valentine Matching Set',date:'Feb 1',promo:true,shipped:6000,returned:1050,good:780,damaged:200,missing:70,avgDays:55,topReason:'Wrong Size',assess:'MONITOR'},
-  {prod:'Olive Legging New Colorway',date:'Jan 18',promo:false,shipped:2000,returned:210,good:150,damaged:40,missing:20,avgDays:65,topReason:'Defective',assess:'INVESTIGATE'},
-];
+const BI_DATA=[];
 
 const DMG_CHECKS=['Torn / Ripped seam','Staining / Soiling','Odor / Smell','Missing tags','Wrong product','Shipping damage'];
 let cu=null,selU=null,curR=null,myCount=0,curPSku=null,emailList=['ops@paragonfitwear.com'];
@@ -2211,10 +2153,7 @@ function rFlags(){
 // ══════════════════════════════════════════════
 // BILLING
 // ══════════════════════════════════════════════
-const BWEEKS=[
-  {w:'Apr 1–6, 2026',rows:[{o:'PFW-10042',c:'Sarah Mitchell',sku:'PFW-BLK-LGG-XS-001',u:1,cond:'Good'},{o:'PFW-10039',c:'James Chen',sku:'PFW-NVY-SPRT-M-002',u:2,cond:'Damaged'},{o:'PFW-10035',c:'Emily Rossi',sku:'PFW-WHT-CROP-S-003',u:1,cond:'Good'}]},
-  {w:'Mar 25–31, 2026',rows:[{o:'PFW-10031',c:'Marcus Thompson',sku:'PFW-GRY-HOODIE-XL-004',u:1,cond:'Good'},{o:'PFW-10028',c:'Priya Sharma',sku:'PFW-BLK-BRA-M-005',u:1,cond:'Damaged'},{o:'PFW-10025',c:'Daniel Park',sku:'PFW-BLU-TANK-S-006',u:1,cond:'Good'},{o:'PFW-10022',c:'Lisa Wang',sku:'PFW-RED-SET-M-007',u:1,cond:'Good'},{o:'PFW-10019',c:'Robert Kim',sku:'PFW-GRN-LGNG-L-008',u:2,cond:'Damaged'}]},
-];
+const BWEEKS=[];
 function renderBilling(){
   const el=document.getElementById('bill-w');if(!el)return;
   el.innerHTML=BWEEKS.map((w,wi)=>{
