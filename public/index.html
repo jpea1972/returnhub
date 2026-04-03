@@ -1235,26 +1235,41 @@ function openShopify(){ if(!curR) return; toast('🛍 Opening Shopify product fo
 // ── ZPL LABEL GENERATION ────────────────────────────
 async function sendPrint(){
   if(!curPSku){ toast('No SKU selected','e'); return; }
-  const copies = parseInt(document.getElementById('pp-copies').value)||1;
-  const size   = document.getElementById('pp-size').value || '3x2';
-  const zpl    = buildZPL(curPSku.sku, curPSku.desc, curPSku.orderId, copies, size);
 
-  // Download ZPL file — Windows will auto-print via batch file association
-  const blob = new Blob([zpl], {type:'application/octet-stream'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  // Use SKU as filename so worker knows what's printing
-  const fname = (curPSku.sku||'label').replace(/[^A-Z0-9\-]/gi,'_');
-  a.download = fname + '.zpl';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const copies  = parseInt(document.getElementById('pp-copies').value)||1;
+  const selId   = document.getElementById('pp-sel')?.value;
+  const printer = printers.find(x=>x.id===selId) || printers[0];
+  const station = printer?.id==='p1' ? 'A' : 'B';
 
-  toast(`🖨 Sending ${copies}× ${curPSku.sku} to printer…`,'s');
-  addSyncLog('Label printed','success',`${copies}× ${curPSku.sku}`);
-  cm('pmo');
+  const btn = document.querySelector('#pmo .btn.bY');
+  if(btn){ btn.textContent='Printing…'; btn.disabled=true; }
+
+  try {
+    const res = await fetch('http://192.168.120.13:3001/print', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        apiKey:  'rh-print-2026-sku',
+        sku:     curPSku.sku,
+        desc:    curPSku.desc,
+        station: station,
+        copies:  copies
+      })
+    });
+    const data = await res.json();
+    if(data.success){
+      toast(`🖨 ${copies}× ${curPSku.sku} sent to ${printer?.n||'printer'}`,'s');
+      addSyncLog('Label printed','success',`${copies}× ${curPSku.sku} → Station ${station}`);
+      cm('pmo');
+    } else {
+      toast(`✗ Print error: ${data.error}`,'e');
+    }
+  } catch(e){
+    toast('✗ Cannot reach print server — is it running on 192.168.120.13?','e');
+    console.error('Print error:',e.message);
+  } finally {
+    if(btn){ btn.textContent='🖨 Send to Printer'; btn.disabled=false; }
+  }
 }
 
 function buildZPL(sku, desc, orderId, copies, size){
