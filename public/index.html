@@ -1923,12 +1923,7 @@ function buildLpBc(sku){
     if(i%2===0){const s=document.createElement('div');s.style.cssText=`width:${ch.charCodeAt(0)%2===0?2:1}px;height:100%;background:white`;c.appendChild(s);}
   });
 }
-function sendPrint(){
-  const p=printers.find(x=>x.id===document.getElementById('pp-sel').value);
-  if(!p){toast('No printer selected','e');return;}
-  toast(`🖨 ${document.getElementById('pp-copies').value}× → ${p.n} · ${p.ip}:${p.port} · ${document.getElementById('pp-size').value}`,'s');
-  cm('pmo');
-}
+
 
 // ══════════════════════════════════════════════
 // PRINTERS
