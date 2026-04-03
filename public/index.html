@@ -1461,14 +1461,46 @@ function cancelLogin(){
   if(document.getElementById('sta-a')) document.getElementById('sta-a').style.borderColor='var(--b2)';
   if(document.getElementById('sta-b')) document.getElementById('sta-b').style.borderColor='var(--b2)';
 }
-function doLogin(){
-  if(document.getElementById('pin').value===selU.pin){
-    cu=selU;document.getElementById('ls').style.display='none';document.getElementById('sb').style.display='flex';document.getElementById('app').style.display='flex';
-    document.getElementById('sav').textContent=cu.i;document.getElementById('sav').style.background=cu.c+'22';document.getElementById('sav').style.color=cu.c;
-    document.getElementById('sname').textContent=cu.n;document.getElementById('srole').textContent=cu.role;
-    initApp();toast('👋 Welcome, '+cu.n,'s');
-    // Cache loaded by new doLogin via loadDBCache()
-  }else{document.getElementById('pin').style.borderColor='var(--R)';document.getElementById('pin').value='';setTimeout(()=>document.getElementById('pin').style.borderColor='',1200);toast('Wrong PIN','e');}
+async function doLogin(){
+  const pin = document.getElementById('pin').value;
+  if(!pin){ toast('Enter your PIN','e'); return; }
+  if(!selStation_val){ toast('Select Station A or B first','e'); return; }
+  const btn = document.querySelector('#pinsec .btn.bY');
+  if(btn){ btn.textContent='Signing in...'; btn.disabled=true; }
+  try {
+    const res = await fetch('/api/db/sessions/start', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ initials: selU.i, pin, station: selStation_val, ip_address: null })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.success){
+      toast(data.error || 'Login failed','e');
+      document.getElementById('pin').style.borderColor='var(--R)';
+      document.getElementById('pin').value='';
+      setTimeout(()=>document.getElementById('pin').style.borderColor='',1200);
+      return;
+    }
+    dbSessionId = data.session_id;
+    dbWorkerId  = data.worker.id;
+    cu = USERS.find(u=>u.i===data.worker.initials) || selU;
+    document.getElementById('ls').style.display='none';
+    document.getElementById('sb').style.display='flex';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('sav').textContent=cu.i;
+    document.getElementById('sav').style.background=cu.c+'22';
+    document.getElementById('sav').style.color=cu.c;
+    document.getElementById('sname').textContent=cu.n;
+    document.getElementById('srole').textContent=cu.role+' · Station '+selStation_val;
+    initApp();
+    toast('👋 Welcome, '+cu.n+' — Station '+selStation_val,'s');
+    setTimeout(()=>{ loadDBCache(); }, 800);
+  } catch(e){
+    toast('Server error: '+e.message,'e');
+    console.error('[Login Error]',e);
+  } finally {
+    if(btn){ btn.textContent='Sign In →'; btn.disabled=false; }
+  }
 }
 document.getElementById('pin').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 async function logout(){
