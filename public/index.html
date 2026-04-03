@@ -777,11 +777,14 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
 // DATA
 // ══════════════════════════════════════════════
 const USERS=[
-  {id:'maria',n:'Maria S.',i:'MS',c:'#4F8EF7',role:'Senior Worker',pin:'1234',billing:false},
-  {id:'bob',n:'Bob T.',i:'BT',c:'#22D46A',role:'Worker',pin:'2222',billing:false},
-  {id:'linda',n:'Linda K.',i:'LK',c:'#F5A623',role:'Worker',pin:'3333',billing:false},
-  {id:'james',n:'James R.',i:'JR',c:'#9B6FF7',role:'Worker',pin:'4444',billing:false},
-  {id:'admin',n:'Admin',i:'AD',c:'#E8FF47',role:'Administrator',pin:'0000',billing:true},
+  {id:'kirene',   n:'Kirene Alba',      i:'KA',c:'#4F8EF7',role:'Worker',        pin:'1111',billing:false},
+  {id:'karen',    n:'Karen Garcia',     i:'KG',c:'#22D46A',role:'Worker',        pin:'2222',billing:false},
+  {id:'emily',    n:'Emily Foote',      i:'EF',c:'#F5A623',role:'Worker',        pin:'3333',billing:false},
+  {id:'leslie',   n:'Leslie Bettes',    i:'LB',c:'#F04545',role:'Worker',        pin:'4444',billing:false},
+  {id:'ascension',n:'Ascension Moreno', i:'AM',c:'#9B6FF7',role:'Worker',        pin:'5555',billing:false},
+  {id:'yadith',   n:'Yadith Moreno',    i:'YM',c:'#14D4C0',role:'Worker',        pin:'6666',billing:false},
+  {id:'kirsten',  n:'Kirsten Felty',    i:'KF',c:'#FF8C42',role:'Senior Worker', pin:'7777',billing:false},
+  {id:'admin',    n:'Admin',            i:'AD',c:'#E8FF47',role:'Administrator', pin:'0000',billing:true},
 ];
 
 let printers=[
@@ -1257,10 +1260,7 @@ async function sendPrint(){
 
 function buildZPL(sku, desc, orderId, copies, size){
   // 300dpi, 3x2 thermal direct, black mark
-  // 3" = 900 dots wide, 2" = 600 dots tall
   const s = (sku||'').replace(/[^A-Z0-9\-]/gi,'').substring(0,30);
-
-  // Wrap description into 2 lines at ~40 chars each
   const d = (desc||'').substring(0,80);
   let d1 = d, d2 = '';
   if(d.length > 40){
@@ -1268,32 +1268,14 @@ function buildZPL(sku, desc, orderId, copies, size){
     d1 = d.substring(0, split > 0 ? split : 40);
     d2 = d.substring(split > 0 ? split+1 : 40).substring(0,40);
   }
-
   return [
-    '^XA',
-    '^MNB',      // black mark sensing
-    '^MTD',      // thermal direct
-    '^PW900',    // 3" wide at 300dpi
-    '^LL600',    // 2" tall at 300dpi
-    '^LH0,0',
-
-    // Barcode — large, centered on label
+    '^XA','^MNB','^MTD','^PW900','^LL600','^LH0,0',
     `^FO50,40^BY3,2,160^BCN,,N,N^FD${s}^FS`,
-
-    // SKU text
     `^FO50,215^A0N,35,35^FD${s}^FS`,
-
-    // Divider
     '^FO30,260^GB840,2,2^FS',
-
-    // Description line 1
     `^FO30,270^A0N,28,28^FD${d1}^FS`,
-
-    // Description line 2 if needed
     d2 ? `^FO30,305^A0N,28,28^FD${d2}^FS` : '',
-
-    `^PQ${copies||1},0,1,Y`,
-    '^XZ'
+    `^PQ${copies||1},0,1,Y`,'^XZ'
   ].filter(Boolean).join('\n');
 }
 
