@@ -863,6 +863,11 @@ const BI_DATA=[
 
 const DMG_CHECKS=['Torn / Ripped seam','Staining / Soiling','Odor / Smell','Missing tags','Wrong product','Shipping damage'];
 let cu=null,selU=null,curR=null,myCount=0,curPSku=null,emailList=['ops@paragonfitwear.com'];
+let dbSessionId     = null;   // DB session ID
+let dbWorkerId      = null;   // DB worker integer ID
+let selStation_val  = null;   // 'A' or 'B'
+let RETURNS_INDEX   = {};     // hash map for O(1) tracking lookup
+let PROCESSED_LOG   = [];     // in-session processed returns
 
 
 // ══════════════════════════════════════════════
