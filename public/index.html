@@ -1236,26 +1236,27 @@ function openShopify(){ if(!curR) return; toast('🛍 Opening Shopify product fo
 
 // ── ZPL LABEL GENERATION ────────────────────────────
 async function sendPrint(){
-  const p = printers.find(x=>x.id===document.getElementById('pp-sel').value);
-  if(!p){ toast('No printer selected','e'); return; }
   if(!curPSku){ toast('No SKU selected','e'); return; }
-  const copies  = parseInt(document.getElementById('pp-copies').value)||1;
-  const size    = document.getElementById('pp-size').value;
-  const labelType = document.getElementById('pp-type').value;
-  const zpl = buildZPL(curPSku.sku, curPSku.desc, curPSku.orderId, copies, size);
-  try {
-    const res = await fetch('/api/print',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ip:p.ip, port:parseInt(p.port)||9100, zpl}),
-    });
-    const data = await res.json();
-    if(data.success){ toast(`🖨 ${copies}× sent to ${p.n} (${p.ip})`,'s'); cm('pmo'); }
-    else toast(`✗ Print error: ${data.error}`,'e');
-  } catch(e){
-    // Server not available — demo mode toast
-    toast(`🖨 Demo: ${copies}× → ${p.n} · ${p.ip}:${p.port} · ${size}`,'s');
-    cm('pmo');
-  }
+  const copies = parseInt(document.getElementById('pp-copies').value)||1;
+  const size   = document.getElementById('pp-size').value || '3x2';
+  const zpl    = buildZPL(curPSku.sku, curPSku.desc, curPSku.orderId, copies, size);
+
+  // Download ZPL file — Windows will auto-print via batch file association
+  const blob = new Blob([zpl], {type:'application/octet-stream'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  // Use SKU as filename so worker knows what's printing
+  const fname = (curPSku.sku||'label').replace(/[^A-Z0-9\-]/gi,'_');
+  a.download = fname + '.zpl';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  toast(`🖨 Sending ${copies}× ${curPSku.sku} to printer…`,'s');
+  addSyncLog('Label printed','success',`${copies}× ${curPSku.sku}`);
+  cm('pmo');
 }
 
 function buildZPL(sku, desc, orderId, copies, size){
