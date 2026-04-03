@@ -1441,12 +1441,11 @@ function doLogin(){
     document.getElementById('sav').textContent=cu.i;document.getElementById('sav').style.background=cu.c+'22';document.getElementById('sav').style.color=cu.c;
     document.getElementById('sname').textContent=cu.n;document.getElementById('srole').textContent=cu.role;
     initApp();toast('👋 Welcome, '+cu.n,'s');
-    // Sync once on login
-    setTimeout(()=>{if(!rrSyncLock)fetchRR();},2000);
+    // Cache loaded by new doLogin via loadDBCache()
   }else{document.getElementById('pin').style.borderColor='var(--R)';document.getElementById('pin').value='';setTimeout(()=>document.getElementById('pin').style.borderColor='',1200);toast('Wrong PIN','e');}
 }
 document.getElementById('pin').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-function logout(){cu=null;document.getElementById('ls').style.display='flex';document.getElementById('sb').style.display='none';document.getElementById('app').style.display='none';document.getElementById('ucards').style.display='grid';document.getElementById('pinsec').style.display='none';}
+function logout(){cu=null;rrSyncLock=false;document.getElementById('ls').style.display='flex';document.getElementById('sb').style.display='none';document.getElementById('app').style.display='none';document.getElementById('ucards').style.display='grid';document.getElementById('pinsec').style.display='none';}
 
 // ══════════════════════════════════════════════
 // INIT / NAV
