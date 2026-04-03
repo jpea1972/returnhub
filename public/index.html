@@ -2350,7 +2350,8 @@ function showScanPicker(matches, scannedCode){
     const reason = isMapped ? r.reason : (r.line_items?.[0]?.reason||'--');
     const items  = isMapped ? (r.items?.length||0) : (r.line_items?.length||0);
     const rid    = isMapped ? r.rrid   : mapRRReturn(r).rrid;
-    return '<div onclick="pickScanMatch(''+rid+'')" style="background:var(--bg2);border:1px solid var(--b2);border-radius:var(--rl);padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--Y)'" onmouseout="this.style.borderColor='var(--b2)'">'
+    const safeRid = String(rid).replace(/'/g, "\\'");
+    return '<div onclick="pickScanMatch(\'' + safeRid + '\')" style="background:var(--bg2);border:1px solid var(--b2);border-radius:var(--rl);padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:border-color .15s" onmouseover="this.style.borderColor=\'var(--Y)\'" onmouseout="this.style.borderColor=\'var(--b2)\'">'
       +'<div>'
       +'<div style="font-family:var(--fm);font-size:13px;color:var(--Y);font-weight:700;margin-bottom:3px">'+order+'</div>'
       +'<div style="font-size:14px;font-weight:600;margin-bottom:2px">'+cust+'</div>'
