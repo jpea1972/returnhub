@@ -1516,7 +1516,7 @@ async function doLogin(){
     document.getElementById('srole').textContent=cu.role+' · Station '+selStation_val;
     initApp();
     toast('👋 Welcome, '+cu.n+' — Station '+selStation_val,'s');
-    setTimeout(()=>{ loadDBCache(); }, 800);
+    setTimeout(()=>{ loadDBCache(); loadClientRates(); }, 800);
   } catch(e){
     toast('Server error: '+e.message,'e');
     console.error('[Login Error]',e);
