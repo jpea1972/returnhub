@@ -627,6 +627,46 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
       </div>
     </div>
 
+    <!-- ══ EDIT FLAG MODAL ══ -->
+    <div class="cmo" id="edit-flag-modal">
+      <div class="cmbox" style="border-color:var(--Y);width:480px">
+        <div class="cmh">
+          <div class="cmt">✏ Edit Return Item</div>
+          <button class="btn bs sm" onclick="cm('edit-flag-modal')">Close</button>
+        </div>
+        <div class="cmb" style="padding:18px">
+          <div style="font-size:12px;color:var(--tx2);margin-bottom:16px">Editing: <strong id="ef-sku" style="color:var(--Y)"></strong> for order <strong id="ef-order" style="color:var(--tx)"></strong></div>
+          <div class="fg">
+            <label class="fl">Condition</label>
+            <select class="fi" id="ef-condition">
+              <option value="Good">Good</option>
+              <option value="Damaged">Damaged</option>
+              <option value="Partial">Partial</option>
+              <option value="Not Returned">Not Returned</option>
+              <option value="Wrong Product">Wrong Product</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Disposition</label>
+            <select class="fi" id="ef-disposition">
+              <option value="Restock">Restock</option>
+              <option value="Damage Out — Dispose">Damage Out — Dispose</option>
+              <option value="Hold">Hold</option>
+              <option value="Quarantine">Quarantine</option>
+              <option value="Return to Client">Return to Client</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Damage / Notes</label>
+            <textarea class="fta" id="ef-notes" placeholder="Describe damage, missing items, or other notes..." style="min-height:80px"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn bY" style="flex:1;justify-content:center" onclick="saveEditFlag()">✓ Save Changes</button>
+            <button class="btn bs" style="flex:1;justify-content:center" onclick="cm('edit-flag-modal')">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- ══ LAUNCH BI ══ -->
     <div class="sec" id="tab-bi">
       <div style="background:rgba(155,111,247,.08);border:1px solid rgba(155,111,247,.2);border-radius:var(--rl);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--P)">📈 Return Rate = Returns ÷ Units Shipped × 100%. &gt;15% on a launch = critical. Combine with Days Held to distinguish sizing issues from quality defects.</div>
@@ -669,7 +709,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
           <div class="sc g"><div class="sl">This Week Units</div><div class="sv cg" id="bill-units">0</div><div class="subs">Billable returns</div></div>
           <div class="sc y"><div class="sl">This Week Total</div><div class="sv cy" id="bill-total">$0.00</div><div class="subs" id="bill-rate">@ $5.00/unit</div></div>
           <div class="sc b"><div class="sl">MTD Revenue</div><div class="sv cb" id="bill-mtd">$0.00</div><div class="subs" id="bill-mtd-label">Loading...</div></div>
-          <div class="sc a"><div class="sl">Unpaid</div><div class="sv ca" id="bill-unpaid">$0.00</div><div class="subs" id="bill-unpaid-label">This week</div></div>
+          <div class="sc g"><div class="sl">Units / Hour</div><div class="sv cg" id="bill-uph">0</div><div class="subs" id="bill-uph-label">Today's rate</div></div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
           <div style="font-family:var(--fd);font-size:15px;font-weight:700">Weekly Billing — Paragonfitwear</div>
@@ -886,8 +926,16 @@ async function updateBillingCards(){
     document.getElementById('bill-rate')  && (document.getElementById('bill-rate').textContent  = '@ $'+CLIENT_RATES.good.toFixed(2)+'/unit');
     document.getElementById('bill-mtd')   && (document.getElementById('bill-mtd').textContent   = '$'+mTotal.toFixed(2));
     document.getElementById('bill-mtd-label') && (document.getElementById('bill-mtd-label').textContent = monthName);
-    document.getElementById('bill-unpaid') && (document.getElementById('bill-unpaid').textContent = '$'+wTotal.toFixed(2));
-    document.getElementById('bill-unpaid-label') && (document.getElementById('bill-unpaid-label').textContent = 'Current week');
+    // Units per hour — today's processed units / hours since first process
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const tRes = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(todayStart.toISOString()));
+    const tData = await tRes.json();
+    const tb2 = tData.billing || {};
+    const todayUnits = parseInt(tb2.total_good||0) + parseInt(tb2.total_damaged||0);
+    const hoursSinceOpen = Math.max(1, (Date.now() - todayStart.getTime()) / 3600000);
+    const uph = todayUnits > 0 ? (todayUnits / Math.min(hoursSinceOpen, 8)).toFixed(1) : '0';
+    document.getElementById('bill-uph') && (document.getElementById('bill-uph').textContent = uph);
+    document.getElementById('bill-uph-label') && (document.getElementById('bill-uph-label').textContent = todayUnits+' units today');
   } catch(e){ console.error('[BillingCards]', e.message); }
 }
 
@@ -2799,19 +2847,42 @@ function dlReport(){
   toast('↓ CSV downloaded','s');
 }
 
+let _editFlagId = null;
+
 function editFlag(flagId, currentCondition){
-  const conditions = ['Good','Damaged','Partial','Not Returned','Wrong Product'];
-  const newCond = prompt('Change condition for this item:\n\nCurrent: '+currentCondition+'\n\nEnter new condition:\n'+conditions.join(', '), currentCondition);
-  if(!newCond || !conditions.includes(newCond)){ toast('Invalid condition','e'); return; }
-  if(newCond === currentCondition){ toast('No change made','s'); return; }
-  fetch('/api/db/flags/'+flagId, {
-    method: 'PUT',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ condition: newCond, worker_id: dbWorkerId })
-  }).then(r=>r.json()).then(d=>{
-    if(d.success){ toast('✓ Condition updated to '+newCond,'s'); rFlags(); }
-    else toast('Update failed: '+d.error,'e');
-  }).catch(e=>toast('Error: '+e.message,'e'));
+  _editFlagId = flagId;
+  // Find flag data from dbFlags
+  const flag = dbFlags.find(f=>f.id===flagId) || {};
+  document.getElementById('ef-sku').textContent   = flag.sku || '';
+  document.getElementById('ef-order').textContent = flag.order_number || '';
+  document.getElementById('ef-condition').value   = currentCondition;
+  document.getElementById('ef-disposition').value = flag.disposition || 'Restock';
+  document.getElementById('ef-notes').value       = [flag.damage_checks, flag.damage_notes, flag.wrong_notes].filter(Boolean).join(' | ') || '';
+  om('edit-flag-modal');
+}
+
+async function saveEditFlag(){
+  if(!_editFlagId){ toast('No flag selected','e'); return; }
+  const condition   = document.getElementById('ef-condition').value;
+  const disposition = document.getElementById('ef-disposition').value;
+  const notes       = document.getElementById('ef-notes').value.trim();
+  try {
+    const res = await fetch('/api/db/flags/'+_editFlagId, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ condition, disposition, damage_notes: notes, worker_id: dbWorkerId })
+    });
+    const data = await res.json();
+    if(data.success){
+      toast('✓ Updated to '+condition,'s');
+      cm('edit-flag-modal');
+      rFlags();
+      updateScanStats();
+      updateBillingCards();
+    } else {
+      toast('Update failed: '+data.error,'e');
+    }
+  } catch(e){ toast('Error: '+e.message,'e'); }
 }
 
 // ══════════════════════════════════════════════
