@@ -654,6 +654,46 @@ app.post('/api/db/flags', async (req, res) => {
   }
 });
 
+// ── RETURN LINE FLAGS: Edit a flag (change condition) ────────────────
+app.put('/api/db/flags/:id', async (req, res) => {
+  const { id } = req.params;
+  const { condition, damage_checks, damage_notes, disposition, wrong_notes, worker_id } = req.body;
+  const valid = ['Good','Damaged','Partial','Not Returned','Wrong Product'];
+  if(!condition || !valid.includes(condition)){
+    return res.status(400).json({ error: 'Invalid condition' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE return_line_flags SET
+        condition     = $1,
+        damage_checks = $2,
+        damage_notes  = $3,
+        disposition   = $4,
+        wrong_notes   = $5
+       WHERE id = $6
+       RETURNING id, condition`,
+      [condition, damage_checks||null, damage_notes||null, disposition||null, wrong_notes||null, id]
+    );
+    if(result.rows.length === 0) return res.status(404).json({ error: 'Flag not found' });
+    // Also update parent return condition if needed
+    const flag = await pool.query('SELECT return_id FROM return_line_flags WHERE id=$1',[id]);
+    if(flag.rows.length > 0){
+      const returnId = flag.rows[0].return_id;
+      // Recalculate overall condition from all flags for this return
+      const allFlags = await pool.query('SELECT condition FROM return_line_flags WHERE return_id=$1',[returnId]);
+      const conditions = allFlags.rows.map(r=>r.condition);
+      let overallCondition = 'Good';
+      if(conditions.some(c=>c==='Not Returned'||c==='Partial')) overallCondition = 'Not Returned';
+      else if(conditions.some(c=>c==='Damaged')) overallCondition = 'Damaged';
+      await pool.query('UPDATE returns SET condition=$1 WHERE id=$2',[overallCondition, returnId]);
+    }
+    res.json({ success: true, id: result.rows[0].id, condition: result.rows[0].condition });
+  } catch(err){
+    console.error('[Flag Edit Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── RETURN LINE FLAGS: Get flags for Returns Report ───────────────────
 app.get('/api/db/flags', async (req, res) => {
   const { condition, date_from, date_to, limit = 500, offset = 0 } = req.query;

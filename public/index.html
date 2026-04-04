@@ -499,8 +499,8 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <!-- ══ SCAN & PROCESS ══ -->
     <div class="sec active" id="tab-scan">
       <div class="srow s5" style="margin-bottom:14px">
-        <div class="sc g"><div class="sl">Today's Returns</div><div class="sv cg" id="s1">0</div><div class="subs">+12 this hour</div></div>
-        <div class="sc b"><div class="sl">Processed</div><div class="sv cb" id="s2">0</div><div class="subs">66% done</div></div>
+        <div class="sc g"><div class="sl">Today's Returns</div><div class="sv cg" id="s1">0</div><div class="subs" id="s1s">Loading...</div></div>
+        <div class="sc b"><div class="sl">Processed</div><div class="sv cb" id="s2">0</div><div class="subs" id="s2s">Today</div></div>
         <div class="sc a"><div class="sl">Pending</div><div class="sv ca" id="s3">0</div><div class="subs">Awaiting scan</div></div>
         <div class="sc r"><div class="sl">Discrepancies</div><div class="sv cr" id="s4">0</div><div class="subs">Flagged for Paragon</div></div>
         <div class="sc y"><div class="sl">Your Count</div><div class="sv cy" id="s5">0</div><div class="subs" id="s5s">This session</div></div>
@@ -509,7 +509,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
       <div class="sz" id="sz" onclick="document.getElementById('bc').focus()">
         <div style="margin-bottom:7px"><svg width="42" height="42" viewBox="0 0 42 42" fill="none"><rect x="2" y="7" width="4" height="28" rx="2" fill="#E8FF47"/><rect x="10" y="7" width="2" height="28" rx="1" fill="#E8FF47" opacity=".5"/><rect x="16" y="7" width="5" height="28" rx="2" fill="#E8FF47"/><rect x="25" y="7" width="2" height="28" rx="1" fill="#E8FF47" opacity=".5"/><rect x="31" y="7" width="6" height="28" rx="2" fill="#E8FF47"/><rect x="41" y="7" width="2" height="28" rx="1" fill="#E8FF47" opacity=".35"/><line x1="0" y1="21" x2="42" y2="21" stroke="#F04545" stroke-width="2" opacity=".7"/></svg></div>
         <div style="font-family:var(--fd);font-size:18px;font-weight:700;margin-bottom:2px" id="stitle">Ready to Scan</div>
-        <div style="font-size:13px;color:var(--tx2)" id="ssub">Point scanner at shipping label · click and type · F2 = demo scan</div>
+        <div style="font-size:13px;color:var(--tx2)" id="ssub">Point scanner at shipping label · click and type</div>
         <input class="bc-in" id="bc" placeholder="Scan barcode or tracking number…" autocomplete="off" onkeydown="onBK(event)" oninput="onBI(this)">
       </div>
 
@@ -623,7 +623,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         <div class="sc r"><div class="sl">Damaged Out</div><div class="sv cr" id="fl-d">1</div><div class="subs">With notes</div></div>
       </div>
       <div class="card"><div class="ch"><div class="ctitle">⚑ Flagged Items</div><span class="badge ba" id="flag-badge">3 OPEN</span></div>
-        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Condition</th><th>Order</th><th>RMA #</th><th>Customer</th><th>Reason</th><th>SKU</th><th>Description</th><th>Exp</th><th>Rcvd</th><th>Missing</th><th>Disposition</th><th>Damage / Notes</th><th>Date</th><th>Worker</th></tr></thead><tbody id="ftbody"></tbody></table></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Condition</th><th>Order</th><th>RMA #</th><th>Customer</th><th>Reason</th><th>SKU</th><th>Description</th><th>Exp</th><th>Rcvd</th><th>Missing</th><th>Disposition</th><th>Damage / Notes</th><th>Date</th><th>Worker</th><th>Edit</th></tr></thead><tbody id="ftbody"></tbody></table></div>
       </div>
     </div>
 
@@ -666,10 +666,10 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
       </div>
       <div id="bt-w">
         <div class="srow s4" style="margin-bottom:14px">
-          <div class="sc g"><div class="sl">This Week Units</div><div class="sv cg">47</div><div class="subs">Billable returns</div></div>
-          <div class="sc y"><div class="sl">This Week Total</div><div class="sv cy">$235.00</div><div class="subs">@ $5.00/unit</div></div>
-          <div class="sc b"><div class="sl">MTD Revenue</div><div class="sv cb">$890.00</div><div class="subs">April 2026</div></div>
-          <div class="sc a"><div class="sl">Unpaid</div><div class="sv ca">$540.00</div><div class="subs">2 invoices</div></div>
+          <div class="sc g"><div class="sl">This Week Units</div><div class="sv cg" id="bill-units">0</div><div class="subs">Billable returns</div></div>
+          <div class="sc y"><div class="sl">This Week Total</div><div class="sv cy" id="bill-total">$0.00</div><div class="subs" id="bill-rate">@ $5.00/unit</div></div>
+          <div class="sc b"><div class="sl">MTD Revenue</div><div class="sv cb" id="bill-mtd">$0.00</div><div class="subs" id="bill-mtd-label">Loading...</div></div>
+          <div class="sc a"><div class="sl">Unpaid</div><div class="sv ca" id="bill-unpaid">$0.00</div><div class="subs" id="bill-unpaid-label">This week</div></div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
           <div style="font-family:var(--fd);font-size:15px;font-weight:700">Weekly Billing — Paragonfitwear</div>
@@ -836,6 +836,61 @@ function saveRates(){
   localStorage.setItem('client_rates_paragon', JSON.stringify(CLIENT_RATES));
   toast('✓ Rates saved — Good: $'+good.toFixed(2)+' / Damaged: $'+damaged.toFixed(2),'s');
 }
+async function updateScanStats(){
+  try {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const res = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(today.toISOString()));
+    const data = await res.json();
+    const b = data.billing || {};
+    const totalToday = parseInt(b.total_returns||0);
+    const processed  = parseInt(b.total_returns||0);
+    const pending    = RETURNS.length;
+    const nonGood    = parseInt(b.total_damaged||0) + parseInt(b.total_not_returned||0);
+    document.getElementById('s1').textContent = totalToday + pending;
+    document.getElementById('s1s') && (document.getElementById('s1s').textContent = totalToday+' processed today');
+    document.getElementById('s2').textContent = processed;
+    document.getElementById('s3').textContent = pending;
+    document.getElementById('s4').textContent = nonGood;
+  } catch(e){ console.error('[Stats]', e.message); }
+}
+
+async function updateBillingCards(){
+  try {
+    const now = new Date();
+    const dow = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate()-(dow===0?6:dow-1));
+    monday.setHours(0,0,0,0);
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate()+5);
+    saturday.setHours(23,59,59,999);
+    // This week
+    const wRes = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(monday.toISOString())+'&date_to='+encodeURIComponent(saturday.toISOString()));
+    const wData = await wRes.json();
+    const wb = wData.billing || {};
+    const wGood = parseInt(wb.total_good||0);
+    const wDmg  = parseInt(wb.total_damaged||0);
+    const wUnits = wGood + wDmg;
+    const wTotal = (wGood + wDmg) * CLIENT_RATES.good;
+    // MTD
+    const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const mRes = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(mtdStart.toISOString()));
+    const mData = await mRes.json();
+    const mb = mData.billing || {};
+    const mGood = parseInt(mb.total_good||0);
+    const mDmg  = parseInt(mb.total_damaged||0);
+    const mTotal = (mGood + mDmg) * CLIENT_RATES.good;
+    const monthName = now.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    document.getElementById('bill-units') && (document.getElementById('bill-units').textContent = wUnits);
+    document.getElementById('bill-total') && (document.getElementById('bill-total').textContent = '$'+wTotal.toFixed(2));
+    document.getElementById('bill-rate')  && (document.getElementById('bill-rate').textContent  = '@ $'+CLIENT_RATES.good.toFixed(2)+'/unit');
+    document.getElementById('bill-mtd')   && (document.getElementById('bill-mtd').textContent   = '$'+mTotal.toFixed(2));
+    document.getElementById('bill-mtd-label') && (document.getElementById('bill-mtd-label').textContent = monthName);
+    document.getElementById('bill-unpaid') && (document.getElementById('bill-unpaid').textContent = '$'+wTotal.toFixed(2));
+    document.getElementById('bill-unpaid-label') && (document.getElementById('bill-unpaid-label').textContent = 'Current week');
+  } catch(e){ console.error('[BillingCards]', e.message); }
+}
+
 function loadClientRates(){
   try {
     const stored = localStorage.getItem('client_rates_paragon');
@@ -1516,7 +1571,7 @@ async function doLogin(){
     document.getElementById('srole').textContent=cu.role+' · Station '+selStation_val;
     initApp();
     toast('👋 Welcome, '+cu.n+' — Station '+selStation_val,'s');
-    setTimeout(()=>{ loadDBCache(); loadClientRates(); }, 800);
+    setTimeout(()=>{ loadDBCache(); loadClientRates(); updateScanStats(); updateBillingCards(); }, 800);
   } catch(e){
     toast('Server error: '+e.message,'e');
     console.error('[Login Error]',e);
@@ -1575,7 +1630,7 @@ function nav(id){
   document.getElementById('ptitle').textContent=TITLES[id]||id;
   // Lazy-init RR tab when opened
   if(id==='rrsettings'){ renderEndpointList(); setRRStatus(RR_CONFIG.connected?'connected':'disconnected'); }
-  if(id==='billing'){ renderBilling(); loadClientRates(); }
+  if(id==='billing'){ renderBilling(); loadClientRates(); updateBillingCards(); }
   if(id==='flags'){ rFlags(); }
   if(id==='queue'){ loadProcessedReturns().then(()=>rQueue()); }
 }
@@ -2209,6 +2264,7 @@ async function finalizeProcess(){
   document.getElementById('s5').textContent=myCount;
   toast('✓ '+curR.id+' processed — saved','s');
   loadProcessedReturns().then(()=>{ if(document.getElementById('tab-queue')?.classList.contains('active')) rQueue(); });
+  updateScanStats(); updateBillingCards();
   if(document.getElementById('tab-billing')?.classList.contains('active')) renderBilling();
   clearScan();
 }
@@ -2506,6 +2562,7 @@ async function rFlags(conditionFilter='all'){
       <td style="font-size:11px;color:var(--tx2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${details}">${details}</td>
       <td style="font-size:11px;color:var(--tx3)">${time}</td>
       <td style="font-family:var(--fm);font-size:11px;color:var(--B)">${f.worker_initials||'—'}</td>
+      <td><button class="btn bs sm" onclick="editFlag(${f.id},'${f.condition}')">Edit</button></td>
     </tr>`;
   }).join('');
 }
@@ -2720,7 +2777,42 @@ function addEmailList(){const i=document.getElementById('email-new'),v=i.value.t
 function addEmail(){const i=document.getElementById('email-add-in'),v=i.value.trim();if(!v||!v.includes('@')){toast('Enter valid email','e');return;}if(!emailList.includes(v))emailList.push(v);i.value='';renderEmailDisplay();}
 function removeEmail(e){emailList=emailList.filter(x=>x!==e);renderEmailDisplay();}
 function sendReport(){toast(`📧 Report sent to: ${emailList.join(', ')}`,'s');cm('emo');}
-function dlReport(){toast('↓ Downloading Excel report…','s');}
+function dlReport(){
+  if(!dbFlags || dbFlags.length === 0){ toast('No data to export','e'); return; }
+  const headers = ['Condition','Order','RMA #','Customer','Reason','SKU','Description','Exp Qty','Rcvd Qty','Missing','Disposition','Damage Notes','Date','Worker'];
+  const rows = dbFlags.map(f => {
+    const missing = (f.expected_qty||0) - (f.received_qty||0);
+    const details = [f.damage_checks, f.damage_notes, f.wrong_notes].filter(Boolean).join(' | ') || '';
+    const date = f.created_at ? new Date(f.created_at).toLocaleDateString('en-US') : '';
+    return [
+      f.condition, f.order_number, f.rma_name, f.customer_name, f.reason,
+      f.sku, f.product_name, f.expected_qty, f.received_qty, missing,
+      f.disposition, details, date, f.worker_initials
+    ].map(v => '"'+(String(v||'').replace(/"/g,'""'))+'"');
+  });
+  const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ReturnHub-Returns-Report-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('↓ CSV downloaded','s');
+}
+
+function editFlag(flagId, currentCondition){
+  const conditions = ['Good','Damaged','Partial','Not Returned','Wrong Product'];
+  const newCond = prompt('Change condition for this item:\n\nCurrent: '+currentCondition+'\n\nEnter new condition:\n'+conditions.join(', '), currentCondition);
+  if(!newCond || !conditions.includes(newCond)){ toast('Invalid condition','e'); return; }
+  if(newCond === currentCondition){ toast('No change made','s'); return; }
+  fetch('/api/db/flags/'+flagId, {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ condition: newCond, worker_id: dbWorkerId })
+  }).then(r=>r.json()).then(d=>{
+    if(d.success){ toast('✓ Condition updated to '+newCond,'s'); rFlags(); }
+    else toast('Update failed: '+d.error,'e');
+  }).catch(e=>toast('Error: '+e.message,'e'));
+}
 
 // ══════════════════════════════════════════════
 // MERCHANTS
