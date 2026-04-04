@@ -457,7 +457,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <button class="ni active" onclick="nav('scan')" id="nav-scan"><span class="ic">📦</span>Scan &amp; Process</button>
     <button class="ni" onclick="nav('queue')" id="nav-queue"><span class="ic">📋</span>Return Queue<span class="nbc a" id="qct">16</span></button>
     <button class="ni" onclick="nav('rr')" id="nav-rr"><span class="ic">🐇</span>Return Rabbit</button>
-    <button class="ni" onclick="nav('flags')" id="nav-flags"><span class="ic">⚑</span>Discrepancy Report<span class="nbc r" id="fct">3</span></button>
+    <button class="ni" onclick="nav('flags')" id="nav-flags"><span class="ic">⚑</span>Returns Report<span class="nbc r" id="fct">0</span></button>
     <div class="nsl">Analytics</div>
     <button class="ni" onclick="nav('bi')" id="nav-bi"><span class="ic">📈</span>Launch BI</button>
     <button class="ni" onclick="nav('dh')" id="nav-dh"><span class="ic">📅</span>Days Held</button>
@@ -613,7 +613,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <!-- ══ DISCREPANCY REPORT ══ -->
     <div class="sec" id="tab-flags">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <div><div style="font-family:var(--fd);font-size:17px;font-weight:700">Discrepancy Report — Paragonfitwear</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Partial returns · Missing items · Wrong products · Damage reports</div></div>
+        <div><div style="font-family:var(--fd);font-size:17px;font-weight:700">Returns Report — Paragonfitwear</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">All processed returns · Damage · Partial · Missing · Wrong product</div></div>
         <div style="display:flex;gap:7px"><button class="btn bs sm" onclick="dlReport()">↓ Excel</button><button class="btn bY sm" onclick="om('emo')">📧 Email to Paragon</button></div>
       </div>
       <div class="srow s4" style="margin-bottom:14px">
@@ -623,7 +623,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         <div class="sc r"><div class="sl">Damaged Out</div><div class="sv cr" id="fl-d">1</div><div class="subs">With notes</div></div>
       </div>
       <div class="card"><div class="ch"><div class="ctitle">⚑ Flagged Items</div><span class="badge ba" id="flag-badge">3 OPEN</span></div>
-        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Issue Type</th><th>Order ID</th><th>RR ID</th><th>Customer</th><th>SKU</th><th>Description</th><th>Exp Qty</th><th>Rcvd</th><th>Not Returned</th><th>Days Held</th><th>Disposition</th><th>Notes for Paragon</th><th>Date</th><th>Status</th></tr></thead><tbody id="ftbody"></tbody></table></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Condition</th><th>Order</th><th>RMA #</th><th>Customer</th><th>Reason</th><th>SKU</th><th>Description</th><th>Exp</th><th>Rcvd</th><th>Missing</th><th>Disposition</th><th>Damage / Notes</th><th>Date</th><th>Worker</th></tr></thead><tbody id="ftbody"></tbody></table></div>
       </div>
     </div>
 
@@ -1564,7 +1564,7 @@ function initApp(){
   // RR status updated only when RR Integration tab is visible
   setTimeout(()=>{ renderEndpointList(); setRRStatus('disconnected'); }, 200);
 }
-const TITLES={scan:'Scan & Process',rrsettings:'Return Rabbit Integration',queue:'Return Queue',rr:'Return Rabbit Feed',flags:'Discrepancy Report',bi:'Launch & Promo BI',dh:'Days Held Analysis',billing:'Billing & Invoices',email:'Email Reports',printers:'Printer Manager',merchants:'Merchants',users:'Users & Access'};
+const TITLES={scan:'Scan & Process',rrsettings:'Return Rabbit Integration',queue:'Return Queue',rr:'Return Rabbit Feed',flags:'Returns Report',bi:'Launch & Promo BI',dh:'Days Held Analysis',billing:'Billing & Invoices',email:'Email Reports',printers:'Printer Manager',merchants:'Merchants',users:'Users & Access'};
 function nav(id){
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
@@ -1576,6 +1576,7 @@ function nav(id){
   // Lazy-init RR tab when opened
   if(id==='rrsettings'){ renderEndpointList(); setRRStatus(RR_CONFIG.connected?'connected':'disconnected'); }
   if(id==='billing'){ renderBilling(); loadClientRates(); }
+  if(id==='flags'){ rFlags(); }
   if(id==='queue'){ loadProcessedReturns().then(()=>rQueue()); }
 }
 function updateClock(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
@@ -2060,12 +2061,49 @@ function confirmAndProcess(){
   });
 
   document.getElementById('confirm-modal').classList.remove('open');
-  rFlags();
 
-  const flagCount=curR.items.filter((_,i)=>itemStates[i].state!=='checked').length;
-  if(flagCount>0){
-    toast(`⚑ ${flagCount} flag(s) logged for Paragon discrepancy report`,'w');
+  // Build flag records for ALL items for complete Returns Report
+  const flagRecords = [];
+  curR.items.forEach((item, idx) => {
+    const s = itemStates[idx];
+    const base = {
+      order_number:  curR.id,
+      rma_name:      curR.rma || curR.id,
+      customer_name: curR.cust,
+      reason:        curR.reason || '--',
+      sku:           item.sku,
+      product_name:  item.desc,
+      worker_id:     dbWorkerId,
+      session_id:    dbSessionId
+    };
+    if(s.state === 'checked'){
+      flagRecords.push({...base, expected_qty: item.qty, received_qty: item.qty, condition: 'Good', disposition: 'Restock'});
+    } else if(s.state === 'unchecked'){
+      flagRecords.push({...base, expected_qty: item.qty, received_qty: 0, condition: 'Not Returned', disposition: 'Hold'});
+    } else if(s.state === 'partial'){
+      const rcv = s.rcvQty || 0;
+      const notes = document.getElementById('pq-notes-'+idx)?.value || null;
+      flagRecords.push({...base, expected_qty: item.qty, received_qty: rcv, condition: 'Partial',
+        damage_notes: notes, disposition: 'Hold'});
+    } else if(s.state === 'damaged'){
+      const checks = DMG_CHECKS.filter((_,ci)=>document.getElementById('dc-'+idx+'-'+ci)?.checked).join(', ');
+      flagRecords.push({...base, expected_qty: item.qty, received_qty: item.qty, condition: 'Damaged',
+        damage_checks: checks || null,
+        damage_notes:  s.dmgNotes || null,
+        disposition:   s.dmgDisp  || 'Damage Out -- Dispose'});
+    } else if(s.state === 'wrong'){
+      flagRecords.push({...base, expected_qty: item.qty, received_qty: item.qty, condition: 'Wrong Product',
+        wrong_notes: s.wrongNotes || null, disposition: 'Quarantine'});
+    }
+  });
+
+  curR._flagRecords = flagRecords;
+
+  const nonGoodCount = curR.items.filter((_,i) => itemStates[i].state !== 'checked').length;
+  if(nonGoodCount > 0){
+    toast('⚑ '+nonGoodCount+' flag(s) will be saved to Returns Report','w');
   }
+  rFlags();
   finalizeProcess();
 }
 
@@ -2078,7 +2116,7 @@ async function finalizeProcess(){
   if(states.some(s=>s==='unchecked'||s==='partial')) condition = 'Not Returned';
   else if(states.some(s=>s==='damaged')) condition = 'Damaged';
 
-  const billingRate  = condition==='Good' ? 5.00 : condition==='Damaged' ? 3.50 : 0.00;
+  const billingRate  = (condition==="Good" || condition==="Damaged") ? CLIENT_RATES.good : 0.00;
   const billedAmount = billingRate * curR.items.reduce((s,i)=>s+i.qty,0);
   const skuFp = curR._sku_fingerprint ||
     curR.items.map(i=>i.sku).filter(Boolean).sort().join('|');
@@ -2112,6 +2150,17 @@ async function finalizeProcess(){
       const data = await res.json();
       if(data.success){
         console.log('[DB] Return saved:', curR.id, 'return_id:', data.return_id);
+        // Save line flags
+        if(curR._flagRecords && curR._flagRecords.length > 0){
+          const flagsWithId = curR._flagRecords.map(f => ({...f, return_id: data.return_id}));
+          fetch('/api/db/flags', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ return_id: data.return_id, flags: flagsWithId })
+          }).then(r=>r.json()).then(d=>{
+            if(d.success) console.log('[DB] Flags saved:', d.saved);
+            else console.error('[DB] Flags save failed:', d.error);
+          }).catch(e=>console.error('[DB] Flags error:', e.message));
+        }
         // Remove from active cache
         const t = curR.track;
         if(t && RETURNS_INDEX[t]){
@@ -2368,35 +2417,76 @@ function rRR(){
 }
 
 // ══════════════════════════════════════════════
-// FLAGS / DISCREPANCY
+// FLAGS / DISCREPANCY -> RETURNS REPORT
 // ══════════════════════════════════════════════
-function rFlags(){
-  const tb=document.getElementById('ftbody');if(!tb)return;
-  const open=FLAGS.filter(f=>f.status==='open').length;
-  document.getElementById('fct').textContent=open;
-  document.getElementById('flag-badge').textContent=open+' OPEN';
-  document.getElementById('s4').textContent=FLAGS.length;
-  document.getElementById('fl-t').textContent=FLAGS.length;
-  document.getElementById('fl-p').textContent=FLAGS.filter(f=>f.type==='Partial Return'||f.type==='Not Returned').length;
-  document.getElementById('fl-w').textContent=FLAGS.filter(f=>f.type==='Wrong Product').length;
-  document.getElementById('fl-d').textContent=FLAGS.filter(f=>f.type==='Damaged').length;
-  const tc={'Damaged':'br','Partial Return':'ba','Not Returned':'br','Wrong Product':'bp'};
-  tb.innerHTML=FLAGS.map(f=>`<tr>
-    <td><span class="badge ${tc[f.type]||'bgr'}">${f.type.toUpperCase()}</span></td>
-    <td class="mono">${f.oid}</td>
-    <td style="font-family:var(--fm);font-size:10px;color:var(--T)">${f.rrid||'—'}</td>
-    <td style="font-size:12px">${f.cust}</td>
-    <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${f.sku}</td>
-    <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.desc||'—'}</td>
-    <td style="text-align:center;font-family:var(--fm)">${f.expQty}</td>
-    <td style="text-align:center;font-family:var(--fm)">${f.rcvQty}</td>
-    <td style="text-align:center;font-family:var(--fm);font-weight:700;color:${f.missing>0?'var(--R)':'var(--G)'}">${f.missing}</td>
-    <td><span class="dchip ${f.days>60?'dr':f.days>30?'da':'dg2'}">${f.days}d</span></td>
-    <td style="font-size:11px">${f.disp}</td>
-    <td style="font-size:11px;color:var(--tx2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.notes}">${f.notes}</td>
-    <td style="font-size:11px;color:var(--tx3)">${f.date}</td>
-    <td><span class="badge ${f.status==='open'?'ba':'bg'}">${f.status.toUpperCase()}</span></td>
-  </tr>`).join('');
+let dbFlags = [];
+
+async function loadFlags(conditionFilter='all', dateFrom=null, dateTo=null){
+  try {
+    let url = '/api/db/flags?limit=500';
+    if(conditionFilter && conditionFilter !== 'all') url += '&condition='+encodeURIComponent(conditionFilter);
+    if(dateFrom) url += '&date_from='+encodeURIComponent(dateFrom);
+    if(dateTo)   url += '&date_to='+encodeURIComponent(dateTo);
+    const res  = await fetch(url);
+    const data = await res.json();
+    if(data.success) dbFlags = data.flags || [];
+  } catch(e){ console.error('[Flags Load]', e.message); }
+}
+
+async function rFlags(conditionFilter='all'){
+  await loadFlags(conditionFilter);
+  const tb = document.getElementById('ftbody');
+  if(!tb) return;
+
+  const total     = dbFlags.length;
+  const damaged   = dbFlags.filter(f=>f.condition==='Damaged').length;
+  const partial   = dbFlags.filter(f=>f.condition==='Partial').length;
+  const notRet    = dbFlags.filter(f=>f.condition==='Not Returned').length;
+  const wrong     = dbFlags.filter(f=>f.condition==='Wrong Product').length;
+  const nonGood   = damaged + partial + notRet + wrong;
+
+  document.getElementById('fct') && (document.getElementById('fct').textContent = nonGood);
+  document.getElementById('flag-badge') && (document.getElementById('flag-badge').textContent = total+' TOTAL');
+  document.getElementById('s4') && (document.getElementById('s4').textContent = nonGood);
+  document.getElementById('fl-t') && (document.getElementById('fl-t').textContent = total);
+  document.getElementById('fl-p') && (document.getElementById('fl-p').textContent = partial + notRet);
+  document.getElementById('fl-w') && (document.getElementById('fl-w').textContent = wrong);
+  document.getElementById('fl-d') && (document.getElementById('fl-d').textContent = damaged);
+
+  if(dbFlags.length === 0){
+    tb.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:20px;color:var(--tx3)">No returns found</td></tr>';
+    return;
+  }
+
+  const condBadge = {
+    'Good':          '<span class="badge bg">GOOD</span>',
+    'Damaged':       '<span class="badge br">DAMAGED</span>',
+    'Partial':       '<span class="badge ba">PARTIAL</span>',
+    'Not Returned':  '<span class="badge br">NOT RETURNED</span>',
+    'Wrong Product': '<span class="badge bp">WRONG PRODUCT</span>'
+  };
+
+  tb.innerHTML = dbFlags.map(f => {
+    const missing = (f.expected_qty||0) - (f.received_qty||0);
+    const time    = f.created_at ? new Date(f.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
+    const details = [f.damage_checks, f.damage_notes, f.wrong_notes].filter(Boolean).join(' · ') || '—';
+    return `<tr>
+      <td>${condBadge[f.condition]||'<span class="badge bgr">'+f.condition+'</span>'}</td>
+      <td class="mono" style="font-size:10px">${f.order_number||'—'}</td>
+      <td style="font-family:var(--fm);font-size:10px;color:var(--T)">${f.rma_name||'—'}</td>
+      <td style="font-size:12px">${f.customer_name||'—'}</td>
+      <td style="font-size:11px;color:var(--tx2)">${f.reason||'—'}</td>
+      <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${f.sku||'—'}</td>
+      <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.product_name||'—'}</td>
+      <td style="text-align:center;font-family:var(--fm)">${f.expected_qty||0}</td>
+      <td style="text-align:center;font-family:var(--fm)">${f.received_qty||0}</td>
+      <td style="text-align:center;font-family:var(--fm);font-weight:700;color:${missing>0?'var(--R)':'var(--G)'}">${missing}</td>
+      <td style="font-size:11px">${f.disposition||'—'}</td>
+      <td style="font-size:11px;color:var(--tx2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${details}">${details}</td>
+      <td style="font-size:11px;color:var(--tx3)">${time}</td>
+      <td style="font-family:var(--fm);font-size:11px;color:var(--B)">${f.worker_initials||'—'}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════════
