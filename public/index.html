@@ -2403,30 +2403,150 @@ function rFlags(){
 // BILLING
 // ══════════════════════════════════════════════
 const BWEEKS=[];
-function renderBilling(){
-  const el=document.getElementById('bill-w');if(!el)return;
-  el.innerHTML=BWEEKS.map((w,wi)=>{
-    const tu=w.rows.reduce((s,r)=>s+r.u,0),gu=w.rows.filter(r=>r.cond==='Good').reduce((s,r)=>s+r.u,0),du=w.rows.filter(r=>r.cond==='Damaged').reduce((s,r)=>s+r.u,0),tot=(gu*5)+(du*3.5);
-    return`<div style="background:var(--bg3);border:1px solid var(--b);border-radius:var(--rl);margin-bottom:10px;overflow:hidden">
-      <div style="padding:12px 15px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-        <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--fd);font-weight:700;font-size:14px">${w.w}</span><span class="badge bgr">${tu} units</span><span class="badge bgr">${w.rows.length} orders</span></div>
-        <div style="display:flex;align-items:center;gap:12px"><div style="text-align:right"><div style="font-size:10px;color:var(--tx3);font-family:var(--fm)">WEEK TOTAL</div><div style="font-family:var(--fd);font-size:17px;font-weight:800;color:var(--Y)">$${tot.toFixed(2)}</div></div><button class="btn bY sm" onclick="event.stopPropagation();toast('📄 Invoice generated','s')">Invoice</button></div>
-      </div>
-      <div ${wi===0?'':'style="display:none"'}>
-        <table class="tbl" style="margin:0;border-top:1px solid var(--b)"><thead><tr><th>Order ID</th><th>Customer</th><th>SKU</th><th>Units</th><th>Condition</th><th>Rate</th><th>Subtotal</th></tr></thead>
-        <tbody>${w.rows.map(r=>{const rate=r.cond==='Damaged'?3.50:5.00;return`<tr><td class="mono">${r.o}</td><td style="font-size:12px">${r.c}</td><td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${r.sku}</td><td style="text-align:center;font-family:var(--fm);font-weight:600">${r.u}</td><td><span class="badge ${r.cond==='Damaged'?'br':'bg'}">${r.cond}</span></td><td class="mono">$${rate.toFixed(2)}/unit</td><td style="font-family:var(--fm);font-weight:700;color:var(--G)">$${(r.u*rate).toFixed(2)}</td></tr>`;}).join('')}</tbody>
+
+async function renderBilling(){
+  const el=document.getElementById('bill-w');
+  if(!el) return;
+  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3)">Loading billing data...</div>';
+  try {
+    const now=new Date();
+    const dow=now.getDay();
+    const monday=new Date(now);
+    monday.setDate(now.getDate()-(dow===0?6:dow-1));
+    monday.setHours(0,0,0,0);
+    const saturday=new Date(monday);
+    saturday.setDate(monday.getDate()+5);
+    saturday.setHours(23,59,59,999);
+    const dateFrom=monday.toISOString();
+    const dateTo=saturday.toISOString();
+
+    const [rRes,bRes]=await Promise.all([
+      fetch('/api/db/returns/search?limit=500&date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo)),
+      fetch('/api/db/reports/billing?date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo))
+    ]);
+    const rData=await rRes.json();
+    const bData=await bRes.json();
+    const returns=rData.returns||[];
+    const billing=bData.billing||{};
+
+    const goodRate=CLIENT_RATES.good;
+    const dmgRate=CLIENT_RATES.damaged;
+    const totalGood=parseInt(billing.total_good||0);
+    const totalDmg=parseInt(billing.total_damaged||0);
+    const totalUnits=totalGood+totalDmg;
+    const totalRev=(totalGood*goodRate)+(totalDmg*dmgRate);
+
+    const weekLabel=monday.toLocaleDateString('en-US',{month:'short',day:'numeric'})+
+      ' – '+saturday.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+    if(returns.length===0){
+      el.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3)">No returns processed this week yet</div>';
+      return;
+    }
+
+    el.innerHTML=`
+      <div style="background:var(--bg3);border:1px solid var(--b);border-radius:var(--rl);margin-bottom:10px;overflow:hidden">
+        <div style="padding:12px 15px;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-family:var(--fd);font-weight:700;font-size:14px">${weekLabel}</span>
+            <span class="badge bgr">${returns.length} returns</span>
+            <span class="badge bgr">${totalUnits} units</span>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:10px;color:var(--tx3);font-family:var(--fm)">WEEK TOTAL</div>
+            <div style="font-family:var(--fd);font-size:17px;font-weight:800;color:var(--Y)">$${totalRev.toFixed(2)}</div>
+          </div>
+        </div>
+        <table class="tbl" style="margin:0;border-top:1px solid var(--b)">
+          <thead><tr>
+            <th>Time</th><th>Order ID</th><th>Customer</th><th>SKU(s)</th>
+            <th>Condition</th><th>Rate</th><th>Subtotal</th><th>Worker</th>
+          </tr></thead>
+          <tbody>
+            ${returns.map(r=>{
+              const lis=Array.isArray(r.line_items)?r.line_items:[];
+              const skus=lis.map(li=>li.sku||'').filter(Boolean).join(', ')||r.sku_fingerprint||'—';
+              const rate=r.condition==='Good'?goodRate:r.condition==='Damaged'?dmgRate:0;
+              const qty=lis.reduce((s,li)=>s+(li.quantity||1),0)||1;
+              const sub=parseFloat(r.billed_amount||(rate*qty));
+              const time=new Date(r.received_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+              return `<tr>
+                <td style="font-family:var(--fm);font-size:10px;color:var(--tx2)">${time}</td>
+                <td class="mono" style="font-size:10px">${r.order_number}</td>
+                <td style="font-size:12px">${r.customer_name}</td>
+                <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${skus}</td>
+                <td><span class="badge ${r.condition==='Good'?'bg':r.condition==='Damaged'?'br':'ba'}">${r.condition}</span></td>
+                <td class="mono">$${rate.toFixed(2)}/unit</td>
+                <td style="font-family:var(--fm);font-weight:700;color:var(--G)">$${sub.toFixed(2)}</td>
+                <td style="font-family:var(--fm);font-size:11px;color:var(--B)">${r.worker_initials||'—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
         </table>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 15px;background:var(--Yd);border-top:1px solid var(--b)">
-          <div style="font-size:12px;color:var(--tx2)">Good: ${gu}×$5.00=$${(gu*5).toFixed(2)} · Damaged: ${du}×$3.50=$${(du*3.5).toFixed(2)}</div>
-          <div style="font-family:var(--fd);font-size:20px;font-weight:800;color:var(--Y)">$${tot.toFixed(2)}</div>
+          <div style="font-size:12px;color:var(--tx2)">
+            Good: ${totalGood}×$${goodRate.toFixed(2)}=$${(totalGood*goodRate).toFixed(2)} ·
+            Damaged: ${totalDmg}×$${dmgRate.toFixed(2)}=$${(totalDmg*dmgRate).toFixed(2)}
+          </div>
+          <div style="font-family:var(--fd);font-size:20px;font-weight:800;color:var(--Y)">$${totalRev.toFixed(2)}</div>
         </div>
-      </div>
-    </div>`;
-  }).join('');
-  const ih=document.getElementById('ih-tbody');if(!ih)return;
-  [{n:'INV-2026-016',p:'Mar 25–31',o:5,u:8,r:'$5/$3.50',t:'$36.50',s:'paid',d:'Apr 1'},{n:'INV-2026-015',p:'Mar 18–24',o:7,u:11,r:'$5/$3.50',t:'$53.50',s:'paid',d:'Mar 25'},{n:'INV-2026-014',p:'Mar 11–17',o:4,u:6,r:'$5/$3.50',t:'$28.00',s:'unpaid',d:'Mar 18'}].forEach(i=>{const tr=ih.insertRow();tr.innerHTML=`<td style="font-family:var(--fm);color:var(--Y)">${i.n}</td><td>${i.p}</td><td>${i.o}</td><td style="font-family:var(--fm);font-weight:600">${i.u}</td><td class="mono">${i.r}</td><td style="font-weight:700;color:var(--G)">${i.t}</td><td><span class="badge ${i.s==='paid'?'bg':'ba'}">${i.s.toUpperCase()}</span></td><td style="font-size:11px;color:var(--tx2)">${i.d}</td>`;});
+      </div>`;
+
+    renderInvoiceHistory();
+  } catch(e){
+    console.error('[Billing]',e.message);
+    el.innerHTML='<div style="text-align:center;padding:30px;color:var(--R)">Error loading billing: '+e.message+'</div>';
+  }
 }
-function bTab(id,btn){document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');['w','h','r'].forEach(s=>{const el=document.getElementById('bt-'+s);if(el)el.style.display=s===id?'block':'none';});}
+
+async function renderInvoiceHistory(){
+  const ih=document.getElementById('ih-tbody');
+  if(!ih) return;
+  ih.innerHTML='';
+  try {
+    const weeks=[];
+    const now=new Date();
+    for(let w=0;w<4;w++){
+      const monday=new Date(now);
+      const dow=now.getDay();
+      monday.setDate(now.getDate()-(dow===0?6:dow-1)-(w*7));
+      monday.setHours(0,0,0,0);
+      const saturday=new Date(monday);
+      saturday.setDate(monday.getDate()+5);
+      saturday.setHours(23,59,59,999);
+      weeks.push({monday,saturday});
+    }
+    const results=await Promise.all(weeks.map(({monday,saturday})=>
+      fetch('/api/db/reports/billing?date_from='+encodeURIComponent(monday.toISOString())+'&date_to='+encodeURIComponent(saturday.toISOString()))
+        .then(r=>r.json()).then(d=>({...d.billing,monday,saturday}))
+    ));
+    results.forEach((w,i)=>{
+      const label=w.monday.toLocaleDateString('en-US',{month:'short',day:'numeric'})+
+        ' – '+w.saturday.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      const good=parseInt(w.total_good||0);
+      const dmg=parseInt(w.total_damaged||0);
+      const total=(good*CLIENT_RATES.good)+(dmg*CLIENT_RATES.damaged);
+      const orders=parseInt(w.total_returns||0);
+      const tr=ih.insertRow();
+      tr.innerHTML=`
+        <td style="font-family:var(--fm);color:var(--Y)">INV-${new Date().getFullYear()}-W${String(Math.ceil((w.monday.getDate())/7)+i).padStart(2,'0')}</td>
+        <td>${label}</td><td>${orders}</td>
+        <td style="font-family:var(--fm);font-weight:600">${good+dmg}</td>
+        <td class="mono">$${CLIENT_RATES.good.toFixed(2)}/$${CLIENT_RATES.damaged.toFixed(2)}</td>
+        <td style="font-weight:700;color:var(--G)">$${total.toFixed(2)}</td>
+        <td><span class="badge ${i===0?'ba':'bg'}">${i===0?'CURRENT':'COMPLETE'}</span></td>
+        <td style="font-size:11px;color:var(--tx2)">${i===0?'This week':w.saturday.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</td>`;
+    });
+  } catch(e){ console.error('[InvoiceHistory]',e.message); }
+}
+
+function bTab(id,btn){
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  ['w','h','r'].forEach(s=>{const el=document.getElementById('bt-'+s);if(el)el.style.display=s===id?'block':'none';});
+  if(id==='w'||id==='h') renderBilling();
+  if(id==='r') loadClientRates();
+}
 
 // ══════════════════════════════════════════════
 // BI
