@@ -170,6 +170,8 @@ app.post('/api/db/sessions/start', async (req, res) => {
       'INSERT INTO sessions (worker_id, station, login_at, last_activity_at, ip_address) VALUES ($1, $2, NOW(), NOW(), $3) RETURNING id',
       [worker.id, station || null, ip_address || null]
     );
+    // Update last login time
+    await pool.query('UPDATE workers SET last_login_at = NOW() WHERE id = $1', [worker.id]);
     res.json({ 
       success: true, 
       session_id: sessionRes.rows[0].id,
