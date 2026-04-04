@@ -634,6 +634,93 @@ app.get('*', (req, res) => {
 });
 
 // ── START ─────────────────────────────────────────────
+// ── DAILY SYNC SCHEDULER ─────────────────────────────
+// Runs incremental RR sync every day at 6:00 AM UTC
+// No Railway cron needed — runs inside the server process
+function scheduleDailySync() {
+  const now = new Date();
+  const next = new Date();
+  next.setUTCHours(6, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  const msUntilNext = next.getTime() - now.getTime();
+  const hoursUntil = (msUntilNext / 1000 / 60 / 60).toFixed(1);
+  console.log(`[Sync Scheduler] Next sync in ${hoursUntil} hours at ${next.toUTCString()}`);
+  setTimeout(async () => {
+    console.log('[Sync Scheduler] Running daily incremental sync...');
+    try {
+      const CUTOFF = '2026-01-01T00:00:00Z';
+      const MAX_PAGES = 400;
+      const RR_BASE_URL = process.env.RR_BASE_URL || 'https://api.returnrabbit.app';
+      if (!process.env.RR_TOKEN) throw new Error('RR_TOKEN not configured');
+      const checkpointRes = await pool.query(
+        "SELECT last_synced_at FROM sync_checkpoints WHERE source = 'return_rabbit' ORDER BY id DESC LIMIT 1"
+      );
+      const lastSyncedAt = checkpointRes.rows.length > 0
+        ? new Date(checkpointRes.rows[0].last_synced_at)
+        : new Date(CUTOFF);
+      let page = 1, recordsAdded = 0, pagesFetched = 0, done = false;
+      let newestCreatedAt = lastSyncedAt;
+      while (!done && page <= MAX_PAGES) {
+        const url = `${RR_BASE_URL}/api/v1/service-requests/?page=${page}&page_size=50&ordering=-created`;
+        const rrRes = await fetch(url, {
+          headers: { 'Authorization': `Token ${process.env.RR_TOKEN}`, 'Accept': 'application/json', 'Cache-Control': 'no-store' }
+        });
+        if (!rrRes.ok) throw new Error(`RR API error: ${rrRes.status}`);
+        const data = await rrRes.json();
+        pagesFetched++;
+        const results = data.results || [];
+        if (results.length === 0) break;
+        for (const item of results) {
+          const rrCreatedAt = new Date(item.created);
+          if (rrCreatedAt <= lastSyncedAt) { done = true; break; }
+          if (rrCreatedAt < new Date(CUTOFF)) { done = true; break; }
+          if (rrCreatedAt > newestCreatedAt) newestCreatedAt = rrCreatedAt;
+          const lineItems = item.line_items || [];
+          const skus = lineItems.map(li => li.sku).filter(Boolean).sort();
+          const skuFingerprint = skus.join('|');
+          const rawTracking = item.fulfillment_details?.tracking_number || '';
+          const trackingMatch = rawTracking.match(/((?:9[0-9]{3}|82)[0-9]{17,19})/);
+          const tracking = trackingMatch ? trackingMatch[1] : rawTracking;
+          const zipMatch = rawTracking.match(/^420(\d{5})/);
+          const customerZip = zipMatch ? zipMatch[1] : null;
+          let carrier = 'USPS';
+          if (tracking.startsWith('1Z')) carrier = 'UPS';
+          try {
+            await pool.query(
+              `INSERT INTO rr_cache (order_number, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+               ON CONFLICT (order_number) DO UPDATE SET
+                 tracking_number=EXCLUDED.tracking_number, customer_name=EXCLUDED.customer_name,
+                 customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
+                 sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
+                 rr_created_at=EXCLUDED.rr_created_at, synced_at=NOW()`,
+              [item.order?.order_number || item.order?.name || String(item.id), tracking,
+               item.shipping_information?.name || '', customerZip,
+               JSON.stringify(lineItems), skuFingerprint, carrier, item.created]
+            );
+            recordsAdded++;
+          } catch(e) { console.error('[Daily Sync Insert]', e.message); }
+        }
+        if (!data.next) break;
+        page++;
+      }
+      await pool.query(
+        `INSERT INTO sync_checkpoints (source, last_synced_at, last_sync_run_at, pages_fetched, records_added, status)
+         VALUES ('return_rabbit', $1, NOW(), $2, $3, 'success')`,
+        [newestCreatedAt.toISOString(), pagesFetched, recordsAdded]
+      );
+      console.log(`[Daily Sync] Complete. Pages: ${pagesFetched}, Records: ${recordsAdded}`);
+    } catch(e) {
+      console.error('[Daily Sync Error]', e.message);
+      await pool.query(
+        `INSERT INTO sync_checkpoints (source, last_sync_run_at, status, error_message)
+         VALUES ('return_rabbit', NOW(), 'failed', $1)`, [e.message]
+      ).catch(() => {});
+    }
+    scheduleDailySync(); // schedule next day
+  }, msUntilNext);
+}
+
 app.listen(PORT, () => {
   console.log(`\n┌────────────────────────────────────────┐`);
   console.log(`│  ReturnHub running on port ${PORT}         │`);
@@ -641,4 +728,5 @@ app.listen(PORT, () => {
   console.log(`│  Health:     http://localhost:${PORT}/api/health │`);
   console.log(`│  RR Token:   ${process.env.RR_TOKEN ? '✓ Configured' : '✗ NOT SET — add to .env'} │`);
   console.log(`└────────────────────────────────────────┘\n`);
+  scheduleDailySync();
 });
