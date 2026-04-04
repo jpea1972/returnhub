@@ -613,6 +613,82 @@ app.post('/api/db/sync', async (req, res) => {
   }
 });
 
+// ── RETURN LINE FLAGS: Save flags ───────────────────────────────────
+app.post('/api/db/flags', async (req, res) => {
+  const { return_id, flags } = req.body;
+  if (!return_id || !flags || !flags.length) {
+    return res.status(400).json({ error: 'return_id and flags required' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const flag of flags) {
+      await client.query(
+        `INSERT INTO return_line_flags (
+          return_id, order_number, rma_name, customer_name, reason,
+          sku, product_name, expected_qty, received_qty, condition,
+          damage_checks, damage_notes, disposition, wrong_notes,
+          worker_id, session_id
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        [
+          return_id,
+          flag.order_number || null, flag.rma_name      || null,
+          flag.customer_name|| null, flag.reason        || null,
+          flag.sku          || null, flag.product_name  || null,
+          flag.expected_qty || 1,   flag.received_qty   || 0,
+          flag.condition    || 'Good',
+          flag.damage_checks|| null, flag.damage_notes  || null,
+          flag.disposition  || null, flag.wrong_notes   || null,
+          flag.worker_id    || null, flag.session_id    || null
+        ]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, saved: flags.length });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[Flags Save Error]', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ── RETURN LINE FLAGS: Get flags for Returns Report ───────────────────
+app.get('/api/db/flags', async (req, res) => {
+  const { condition, date_from, date_to, limit = 500, offset = 0 } = req.query;
+  try {
+    let where = ['1=1'];
+    let params = [];
+    let i = 1;
+    if (condition && condition !== 'all') {
+      where.push(`f.condition = $${i}`); params.push(condition); i++;
+    }
+    if (date_from) { where.push(`f.created_at >= $${i}`); params.push(date_from); i++; }
+    if (date_to)   { where.push(`f.created_at <= $${i}`); params.push(date_to);   i++; }
+    params.push(parseInt(limit));
+    params.push(parseInt(offset));
+    const result = await pool.query(
+      `SELECT
+        f.id, f.order_number, f.rma_name, f.customer_name, f.reason,
+        f.sku, f.product_name, f.expected_qty, f.received_qty, f.condition,
+        f.damage_checks, f.damage_notes, f.disposition, f.wrong_notes,
+        f.created_at,
+        w.initials as worker_initials, w.full_name as worker_name
+       FROM return_line_flags f
+       LEFT JOIN workers w ON f.worker_id = w.id
+       WHERE ${where.join(' AND ')}
+       ORDER BY f.created_at DESC
+       LIMIT $${i} OFFSET $${i+1}`,
+      params
+    );
+    res.json({ success: true, count: result.rows.length, flags: result.rows });
+  } catch (err) {
+    console.error('[Flags Get Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── HEALTH CHECK update — include DB status ───────────
 app.get('/api/db/health', async (req, res) => {
   try {
