@@ -636,6 +636,16 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         </div>
         <div class="cmb" style="padding:18px">
           <div style="font-size:12px;color:var(--tx2);margin-bottom:16px">Editing: <strong id="ef-sku" style="color:var(--Y)"></strong> for order <strong id="ef-order" style="color:var(--tx)"></strong></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">
+            <div class="fg" style="margin-bottom:0">
+              <label class="fl">Expected Qty</label>
+              <input class="fi" id="ef-expected-qty" type="number" min="0" readonly style="opacity:.6">
+            </div>
+            <div class="fg" style="margin-bottom:0">
+              <label class="fl">Received Qty</label>
+              <input class="fi" id="ef-received-qty" type="number" min="0">
+            </div>
+          </div>
           <div class="fg">
             <label class="fl">Condition</label>
             <select class="fi" id="ef-condition">
@@ -2855,22 +2865,25 @@ function editFlag(flagId, currentCondition){
   const flag = dbFlags.find(f=>f.id===flagId) || {};
   document.getElementById('ef-sku').textContent   = flag.sku || '';
   document.getElementById('ef-order').textContent = flag.order_number || '';
-  document.getElementById('ef-condition').value   = currentCondition;
-  document.getElementById('ef-disposition').value = flag.disposition || 'Restock';
+  document.getElementById('ef-condition').value    = currentCondition;
+  document.getElementById('ef-disposition').value  = flag.disposition || 'Restock';
+  document.getElementById('ef-expected-qty').value = flag.expected_qty || 1;
+  document.getElementById('ef-received-qty').value = flag.received_qty !== undefined ? flag.received_qty : flag.expected_qty || 1;
   document.getElementById('ef-notes').value       = [flag.damage_checks, flag.damage_notes, flag.wrong_notes].filter(Boolean).join(' | ') || '';
   om('edit-flag-modal');
 }
 
 async function saveEditFlag(){
   if(!_editFlagId){ toast('No flag selected','e'); return; }
-  const condition   = document.getElementById('ef-condition').value;
-  const disposition = document.getElementById('ef-disposition').value;
-  const notes       = document.getElementById('ef-notes').value.trim();
+  const condition    = document.getElementById('ef-condition').value;
+  const disposition  = document.getElementById('ef-disposition').value;
+  const notes        = document.getElementById('ef-notes').value.trim();
+  const received_qty = parseInt(document.getElementById('ef-received-qty').value) || 0;
   try {
     const res = await fetch('/api/db/flags/'+_editFlagId, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ condition, disposition, damage_notes: notes, worker_id: dbWorkerId })
+      body: JSON.stringify({ condition, disposition, damage_notes: notes, received_qty, worker_id: dbWorkerId })
     });
     const data = await res.json();
     if(data.success){

@@ -657,7 +657,7 @@ app.post('/api/db/flags', async (req, res) => {
 // ── RETURN LINE FLAGS: Edit a flag (change condition) ────────────────
 app.put('/api/db/flags/:id', async (req, res) => {
   const { id } = req.params;
-  const { condition, damage_checks, damage_notes, disposition, wrong_notes, worker_id } = req.body;
+  const { condition, damage_checks, damage_notes, disposition, wrong_notes, received_qty, worker_id } = req.body;
   const valid = ['Good','Damaged','Partial','Not Returned','Wrong Product'];
   if(!condition || !valid.includes(condition)){
     return res.status(400).json({ error: 'Invalid condition' });
@@ -669,10 +669,11 @@ app.put('/api/db/flags/:id', async (req, res) => {
         damage_checks = $2,
         damage_notes  = $3,
         disposition   = $4,
-        wrong_notes   = $5
+        wrong_notes   = $5,
+        received_qty  = COALESCE($7, received_qty)
        WHERE id = $6
        RETURNING id, condition`,
-      [condition, damage_checks||null, damage_notes||null, disposition||null, wrong_notes||null, id]
+      [condition, damage_checks||null, damage_notes||null, disposition||null, wrong_notes||null, id, received_qty!==undefined?received_qty:null]
     );
     if(result.rows.length === 0) return res.status(404).json({ error: 'Flag not found' });
     // Also update parent return condition if needed
@@ -685,7 +686,30 @@ app.put('/api/db/flags/:id', async (req, res) => {
       let overallCondition = 'Good';
       if(conditions.some(c=>c==='Not Returned'||c==='Partial')) overallCondition = 'Not Returned';
       else if(conditions.some(c=>c==='Damaged')) overallCondition = 'Damaged';
-      await pool.query('UPDATE returns SET condition=$1 WHERE id=$2',[overallCondition, returnId]);
+      // Recalculate billed_amount from all flags for this return
+      const allFlagsDetail = await pool.query(
+        'SELECT condition, expected_qty, received_qty FROM return_line_flags WHERE return_id=$1',
+        [returnId]
+      );
+      // Get billing_rate from the parent return
+      const returnData = await pool.query(
+        'SELECT billing_rate FROM returns WHERE id=$1', [returnId]
+      );
+      const rate = parseFloat(returnData.rows[0]?.billing_rate || 5.00);
+      // Calculate billable units: Good + Damaged items use full qty, others = 0
+      let billableUnits = 0;
+      allFlagsDetail.rows.forEach(f => {
+        if(f.condition === 'Good' || f.condition === 'Damaged'){
+          billableUnits += parseInt(f.expected_qty || 1);
+        } else if(f.condition === 'Partial'){
+          billableUnits += parseInt(f.received_qty || 0);
+        }
+      });
+      const newBilledAmount = billableUnits * rate;
+      await pool.query(
+        'UPDATE returns SET condition=$1, billed_amount=$2 WHERE id=$3',
+        [overallCondition, newBilledAmount, returnId]
+      );
     }
     res.json({ success: true, id: result.rows[0].id, condition: result.rows[0].condition });
   } catch(err){
