@@ -3003,7 +3003,7 @@ function renderUsersTable(workers){
     <td><span class="badge by">${w.role==='Administrator'?'Yes':'No'}</span></td>
     <td style="font-size:11px;color:var(--tx2)">${w.last_login_at ? new Date(w.last_login_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : 'Never'}</td>
     <td><span class="badge bg">Active</span></td>
-    <td><button class="btn bs sm" onclick="openEditUser(${w.id},'${w.full_name}','${w.initials}','${w.billing||false}',${JSON.stringify(w.role||'Worker')})">Edit</button></td>
+    <td><button class="btn bs sm" data-uid="${w.id}" data-name="${w.full_name}" data-initials="${w.initials}" data-billing="${w.billing||false}" data-role="${w.role||'Worker'}" onclick="openEditUser(this)">Edit</button></td>
   </tr>`).join('');
 }
 
@@ -3017,7 +3017,12 @@ function openAddUser(){
   om('user-modal');
 }
 
-function openEditUser(id, name, initials, billing, role){
+function openEditUser(btn){
+  const id       = btn.dataset.uid;
+  const name     = btn.dataset.name;
+  const initials = btn.dataset.initials;
+  const billing  = btn.dataset.billing === 'true';
+  const role     = btn.dataset.role || 'Worker';
   _editUserId = id;
   document.getElementById('um-title').textContent = '✏ Edit Worker';
   document.getElementById('um-name').value = name;
