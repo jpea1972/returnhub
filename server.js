@@ -769,16 +769,16 @@ app.get('/api/db/workers', async (req, res) => {
 });
 
 app.post('/api/db/workers', async (req, res) => {
-  const { full_name, initials, pin, role } = req.body;
+  const { full_name, initials, pin, role, billing } = req.body;
   if(!full_name || !initials || !pin)
     return res.status(400).json({ error: 'full_name, initials, pin required' });
   if(!/^\d{4}$/.test(pin))
     return res.status(400).json({ error: 'PIN must be 4 digits' });
   try {
     const result = await pool.query(
-      `INSERT INTO workers (full_name, initials, pin, role)
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [full_name, initials.toUpperCase(), pin, role||'Worker']
+      `INSERT INTO workers (full_name, initials, pin, role, billing)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [full_name, initials.toUpperCase(), pin, role||'Worker', billing||false]
     );
     res.json({ success: true, id: result.rows[0].id });
   } catch(err){
@@ -789,7 +789,7 @@ app.post('/api/db/workers', async (req, res) => {
 
 app.put('/api/db/workers/:id', async (req, res) => {
   const { id } = req.params;
-  const { full_name, initials, pin, role } = req.body;
+  const { full_name, initials, pin, role, billing } = req.body;
   if(!full_name || !initials)
     return res.status(400).json({ error: 'full_name and initials required' });
   if(pin && !/^\d{4}$/.test(pin))

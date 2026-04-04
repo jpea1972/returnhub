@@ -657,6 +657,10 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
               <option value="Administrator">Administrator</option>
             </select>
           </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:var(--r);margin-bottom:4px">
+            <input type="checkbox" id="um-billing" style="width:16px;height:16px;cursor:pointer">
+            <label for="um-billing" style="font-size:13px;cursor:pointer">Can view Billing &amp; Invoices</label>
+          </div>
           <div style="display:flex;gap:8px;margin-top:4px">
             <button class="btn bY" style="flex:1;justify-content:center" onclick="saveUser()">✓ Save Worker</button>
             <button class="btn bs" style="flex:1;justify-content:center" onclick="cm('user-modal')">Cancel</button>
@@ -2999,7 +3003,7 @@ function renderUsersTable(workers){
     <td><span class="badge by">${w.role==='Administrator'?'Yes':'No'}</span></td>
     <td style="font-size:11px;color:var(--tx2)">${w.last_login_at ? new Date(w.last_login_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : 'Never'}</td>
     <td><span class="badge bg">Active</span></td>
-    <td><button class="btn bs sm" onclick="openEditUser(${w.id},'${w.full_name}','${w.initials}','${w.pin}','${w.role||'Worker'}')">Edit</button></td>
+    <td><button class="btn bs sm" onclick="openEditUser(${w.id},'${w.full_name}','${w.initials}','${w.billing||false}',${JSON.stringify(w.role||'Worker')})">Edit</button></td>
   </tr>`).join('');
 }
 
@@ -3013,7 +3017,7 @@ function openAddUser(){
   om('user-modal');
 }
 
-function openEditUser(id, name, initials, pin, role){
+function openEditUser(id, name, initials, billing, role){
   _editUserId = id;
   document.getElementById('um-title').textContent = '✏ Edit Worker';
   document.getElementById('um-name').value = name;
@@ -3021,6 +3025,7 @@ function openEditUser(id, name, initials, pin, role){
   document.getElementById('um-pin').value = '';
   document.getElementById('um-pin').placeholder = 'Leave blank to keep current PIN';
   document.getElementById('um-role').value = role;
+  document.getElementById('um-billing').checked = billing === true || billing === 'true';
   om('user-modal');
 }
 
@@ -3042,8 +3047,9 @@ async function saveUser(){
   try {
     const url    = _editUserId ? '/api/db/workers/'+_editUserId : '/api/db/workers';
     const method = _editUserId ? 'PUT' : 'POST';
-    const body   = { full_name: name, initials, role };
-    if(pin) body.pin = pin;
+    const billing = document.getElementById('um-billing')?.checked || false;
+  const body   = { full_name: name, initials, role, billing };
+  if(pin) body.pin = pin;
 
     const res  = await fetch(url, {
       method, headers: {'Content-Type':'application/json'},
