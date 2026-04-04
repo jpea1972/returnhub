@@ -434,8 +434,10 @@ app.get('/api/db/reports/productivity', async (req, res) => {
 // ── BILLING: Summary for period ───────────────────────
 app.get('/api/db/reports/billing', async (req, res) => {
   const { date_from, date_to } = req.query;
-  if (!date_from || !date_to) return res.status(400).json({ error: 'date_from and date_to required' });
   try {
+    const where = ['received_at >= $1'];
+    const params = [date_from];
+    if(date_to){ where.push('received_at <= $2'); params.push(date_to); }
     const result = await pool.query(
       `SELECT 
         COUNT(*) as total_returns,
@@ -446,8 +448,8 @@ app.get('/api/db/reports/billing', async (req, res) => {
         SUM(CASE WHEN condition = 'Damaged' THEN billed_amount ELSE 0 END) as damaged_revenue,
         SUM(billed_amount) as total_revenue
        FROM returns
-       WHERE received_at >= $1 AND received_at <= $2`,
-      [date_from, date_to]
+       WHERE ${where.join(' AND ')}`,
+      params
     );
     res.json({ success: true, billing: result.rows[0] });
   } catch (err) {

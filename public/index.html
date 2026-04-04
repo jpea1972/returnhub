@@ -617,10 +617,10 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         <div style="display:flex;gap:7px"><button class="btn bs sm" onclick="dlReport()">↓ Excel</button><button class="btn bY sm" onclick="om('emo')">📧 Email to Paragon</button></div>
       </div>
       <div class="srow s4" style="margin-bottom:14px">
-        <div class="sc r"><div class="sl">Total Flags</div><div class="sv cr" id="fl-t">3</div><div class="subs">This week</div></div>
-        <div class="sc a"><div class="sl">Partial / Missing</div><div class="sv ca" id="fl-p">1</div><div class="subs">Units not returned</div></div>
-        <div class="sc a"><div class="sl">Wrong Product</div><div class="sv ca" id="fl-w">1</div><div class="subs">Quarantined</div></div>
-        <div class="sc r"><div class="sl">Damaged Out</div><div class="sv cr" id="fl-d">1</div><div class="subs">With notes</div></div>
+        <div class="sc g"><div class="sl">Total Items</div><div class="sv cg" id="fl-t">0</div><div class="subs">All conditions</div></div>
+        <div class="sc a"><div class="sl">Partial / Missing</div><div class="sv ca" id="fl-p">0</div><div class="subs">Units not returned</div></div>
+        <div class="sc a"><div class="sl">Wrong Product</div><div class="sv ca" id="fl-w">0</div><div class="subs">Quarantined</div></div>
+        <div class="sc r"><div class="sl">Damaged Out</div><div class="sv cr" id="fl-d">0</div><div class="subs">With notes</div></div>
       </div>
       <div class="card"><div class="ch"><div class="ctitle">⚑ Flagged Items</div><span class="badge ba" id="flag-badge">3 OPEN</span></div>
         <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Condition</th><th>Order</th><th>RMA #</th><th>Customer</th><th>Reason</th><th>SKU</th><th>Description</th><th>Exp</th><th>Rcvd</th><th>Missing</th><th>Disposition</th><th>Damage / Notes</th><th>Date</th><th>Worker</th><th>Edit</th></tr></thead><tbody id="ftbody"></tbody></table></div>
@@ -871,6 +871,7 @@ const BI_DATA=[];
 const DMG_CHECKS=['Torn / Ripped seam','Staining / Soiling','Odor / Smell','Missing tags','Wrong product','Shipping damage'];
 let cu=null,selU=null,curR=null,myCount=0,curPSku=null,emailList=['ops@paragonfitwear.com'];
 let dbSessionId     = null;   // DB session ID
+let sessionStartTime = null;  // when current session started
 let dbWorkerId      = null;   // DB worker integer ID
 let selStation_val  = null;   // 'A' or 'B'
 let RETURNS_INDEX   = {};     // hash map for O(1) tracking lookup
@@ -889,18 +890,33 @@ function saveRates(){
 async function updateScanStats(){
   try {
     const today = new Date(); today.setHours(0,0,0,0);
-    const res = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(today.toISOString()));
+    const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+
+    // Team totals for today
+    const res = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString()));
     const data = await res.json();
     const b = data.billing || {};
     const totalToday = parseInt(b.total_returns||0);
-    const processed  = parseInt(b.total_returns||0);
     const pending    = RETURNS.length;
     const nonGood    = parseInt(b.total_damaged||0) + parseInt(b.total_not_returned||0);
+
     document.getElementById('s1').textContent = totalToday + pending;
     document.getElementById('s1s') && (document.getElementById('s1s').textContent = totalToday+' processed today');
-    document.getElementById('s2').textContent = processed;
+    document.getElementById('s2').textContent = totalToday;
     document.getElementById('s3').textContent = pending;
     document.getElementById('s4').textContent = nonGood;
+
+    // Worker's own units/hour for this session
+    if(dbWorkerId && sessionStartTime){
+      const wRes = await fetch('/api/db/reports/productivity?worker_id='+dbWorkerId+'&date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString()));
+      const wData = await wRes.json();
+      const rows = wData.rows || [];
+      const myUnits = rows.reduce((s,r)=>s+parseInt(r.returns_processed||0),0);
+      const sessionHours = Math.max(0.1, (Date.now() - sessionStartTime.getTime()) / 3600000);
+      const myUph = (myUnits / sessionHours).toFixed(1);
+      document.getElementById('s5').textContent = myCount;
+      document.getElementById('s5s') && (document.getElementById('s5s').textContent = myUph+' units/hr');
+    }
   } catch(e){ console.error('[Stats]', e.message); }
 }
 
@@ -1617,6 +1633,7 @@ async function doLogin(){
       return;
     }
     dbSessionId = data.session_id;
+    sessionStartTime = new Date();
     dbWorkerId  = data.worker.id;
     cu = USERS.find(u=>u.i===data.worker.initials) || selU;
     document.getElementById('ls').style.display='none';
