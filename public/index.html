@@ -627,6 +627,43 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
       </div>
     </div>
 
+    <!-- ══ USER MODAL ══ -->
+    <div class="cmo" id="user-modal">
+      <div class="cmbox" style="border-color:var(--Y);width:440px">
+        <div class="cmh">
+          <div class="cmt" id="um-title">+ Add Worker</div>
+          <button class="btn bs sm" onclick="cm('user-modal')">Close</button>
+        </div>
+        <div class="cmb" style="padding:18px">
+          <div class="fg">
+            <label class="fl">Full Name</label>
+            <input class="fi" id="um-name" placeholder="e.g. Kirene Alba">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fg">
+              <label class="fl">Initials (2-3 letters)</label>
+              <input class="fi" id="um-initials" placeholder="e.g. KA" maxlength="3">
+            </div>
+            <div class="fg">
+              <label class="fl">4-Digit PIN</label>
+              <input class="fi" id="um-pin" type="password" placeholder="e.g. 1234" maxlength="4">
+            </div>
+          </div>
+          <div class="fg">
+            <label class="fl">Role</label>
+            <select class="fi" id="um-role">
+              <option value="Worker">Worker</option>
+              <option value="Senior Worker">Senior Worker</option>
+              <option value="Administrator">Administrator</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn bY" style="flex:1;justify-content:center" onclick="saveUser()">✓ Save Worker</button>
+            <button class="btn bs" style="flex:1;justify-content:center" onclick="cm('user-modal')">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- ══ EDIT FLAG MODAL ══ -->
     <div class="cmo" id="edit-flag-modal">
       <div class="cmbox" style="border-color:var(--Y);width:480px">
@@ -827,7 +864,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
 
     <!-- ══ USERS ══ -->
     <div class="sec" id="tab-users">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-family:var(--fd);font-size:16px;font-weight:700">Users &amp; Access</div><button class="btn bY">+ Add User</button></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-family:var(--fd);font-size:16px;font-weight:700">Users &amp; Access</div><button class="btn bY" onclick="openAddUser()">+ Add User</button></div>
       <div class="card"><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Worker</th><th>Role</th><th>PIN</th><th>Merchant Access</th><th>Billing</th><th>Last Login</th><th>Status</th><th></th></tr></thead><tbody id="utbody"></tbody></table></div></div>
     </div>
 
@@ -1707,6 +1744,7 @@ function nav(id){
   if(id==='rrsettings'){ renderEndpointList(); setRRStatus(RR_CONFIG.connected?'connected':'disconnected'); }
   if(id==='billing'){ renderBilling(); loadClientRates(); updateBillingCards(); }
   if(id==='flags'){ rFlags(); }
+  if(id==='users'){ loadUsersFromDB(); }
   if(id==='queue'){ loadProcessedReturns().then(()=>rQueue()); }
 }
 function updateClock(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
@@ -2932,6 +2970,94 @@ function switchM(v){if(v==='add'){toast('➕ Add merchant — see Merchants page
 function renderUsers(){
   const tb=document.getElementById('utbody');if(!tb)return;
   tb.innerHTML=USERS.map(u=>`<tr><td><div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:28px;border-radius:50%;background:${u.c}22;color:${u.c};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px">${u.i}</div><span style="font-weight:600;font-size:13px">${u.n}</span></div></td><td><span class="badge ${u.role==='Administrator'?'by':'bgr'}">${u.role}</span></td><td style="font-family:var(--fm);color:var(--tx3)">••••</td><td style="font-size:12px">All Merchants</td><td><span class="badge ${u.billing?'by':'bgr'}">${u.billing?'Yes':'No'}</span></td><td style="font-size:11px;color:var(--tx2)">Today</td><td><span class="badge bg">Active</span></td><td><button class="btn bs sm">Edit</button></td></tr>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// USERS
+// ══════════════════════════════════════════════
+let _editUserId = null;
+
+async function loadUsersFromDB(){
+  try {
+    const res = await fetch('/api/db/workers');
+    const data = await res.json();
+    if(data.success) renderUsersTable(data.workers);
+  } catch(e){ console.error('[Users]', e.message); }
+}
+
+function renderUsersTable(workers){
+  const tb = document.getElementById('utbody');
+  if(!tb) return;
+  tb.innerHTML = workers.map(w => `<tr>
+    <td><div style="display:flex;align-items:center;gap:8px">
+      <div style="width:28px;height:28px;border-radius:50%;background:#E8FF4722;color:#E8FF47;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px">${w.initials}</div>
+      <span style="font-weight:600;font-size:13px">${w.full_name}</span>
+    </div></td>
+    <td><span class="badge ${w.role==='Administrator'?'by':'bgr'}">${w.role||'Worker'}</span></td>
+    <td style="font-family:var(--fm);color:var(--tx3)">••••</td>
+    <td style="font-size:12px">All Merchants</td>
+    <td><span class="badge by">${w.role==='Administrator'?'Yes':'No'}</span></td>
+    <td style="font-size:11px;color:var(--tx2)">${w.last_login_at ? new Date(w.last_login_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : 'Never'}</td>
+    <td><span class="badge bg">Active</span></td>
+    <td><button class="btn bs sm" onclick="openEditUser(${w.id},'${w.full_name}','${w.initials}','${w.pin}','${w.role||'Worker'}')">Edit</button></td>
+  </tr>`).join('');
+}
+
+function openAddUser(){
+  _editUserId = null;
+  document.getElementById('um-title').textContent = '+ Add Worker';
+  document.getElementById('um-name').value = '';
+  document.getElementById('um-initials').value = '';
+  document.getElementById('um-pin').value = '';
+  document.getElementById('um-role').value = 'Worker';
+  om('user-modal');
+}
+
+function openEditUser(id, name, initials, pin, role){
+  _editUserId = id;
+  document.getElementById('um-title').textContent = '✏ Edit Worker';
+  document.getElementById('um-name').value = name;
+  document.getElementById('um-initials').value = initials;
+  document.getElementById('um-pin').value = '';
+  document.getElementById('um-pin').placeholder = 'Leave blank to keep current PIN';
+  document.getElementById('um-role').value = role;
+  om('user-modal');
+}
+
+async function saveUser(){
+  const name     = document.getElementById('um-name').value.trim();
+  const initials = document.getElementById('um-initials').value.trim().toUpperCase();
+  const pin      = document.getElementById('um-pin').value.trim();
+  const role     = document.getElementById('um-role').value;
+
+  if(!name || !initials){ toast('Name and initials required','e'); return; }
+  if(initials.length < 2 || initials.length > 3){ toast('Initials must be 2-3 characters','e'); return; }
+  if(!_editUserId && (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin))){
+    toast('4-digit PIN required for new workers','e'); return;
+  }
+  if(pin && (pin.length !== 4 || !/^\d{4}$/.test(pin))){
+    toast('PIN must be exactly 4 digits','e'); return;
+  }
+
+  try {
+    const url    = _editUserId ? '/api/db/workers/'+_editUserId : '/api/db/workers';
+    const method = _editUserId ? 'PUT' : 'POST';
+    const body   = { full_name: name, initials, role };
+    if(pin) body.pin = pin;
+
+    const res  = await fetch(url, {
+      method, headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(data.success){
+      toast(_editUserId ? '✓ Worker updated' : '✓ Worker added','s');
+      cm('user-modal');
+      loadUsersFromDB();
+    } else {
+      toast('Error: '+data.error,'e');
+    }
+  } catch(e){ toast('Error: '+e.message,'e'); }
 }
 
 // ══════════════════════════════════════════════

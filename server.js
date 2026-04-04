@@ -757,6 +757,58 @@ app.get('/api/db/flags', async (req, res) => {
   }
 });
 
+// ── WORKERS API ──────────────────────────────────────────────────────
+app.get('/api/db/workers', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, full_name, initials, role, last_login_at, created_at
+       FROM workers ORDER BY full_name ASC`
+    );
+    res.json({ success: true, workers: result.rows });
+  } catch(err){ res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/db/workers', async (req, res) => {
+  const { full_name, initials, pin, role } = req.body;
+  if(!full_name || !initials || !pin)
+    return res.status(400).json({ error: 'full_name, initials, pin required' });
+  if(!/^\d{4}$/.test(pin))
+    return res.status(400).json({ error: 'PIN must be 4 digits' });
+  try {
+    const result = await pool.query(
+      `INSERT INTO workers (full_name, initials, pin, role)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [full_name, initials.toUpperCase(), pin, role||'Worker']
+    );
+    res.json({ success: true, id: result.rows[0].id });
+  } catch(err){
+    if(err.code === '23505') return res.status(400).json({ error: 'Initials already exist' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/db/workers/:id', async (req, res) => {
+  const { id } = req.params;
+  const { full_name, initials, pin, role } = req.body;
+  if(!full_name || !initials)
+    return res.status(400).json({ error: 'full_name and initials required' });
+  if(pin && !/^\d{4}$/.test(pin))
+    return res.status(400).json({ error: 'PIN must be 4 digits' });
+  try {
+    let query, params;
+    if(pin){
+      query = `UPDATE workers SET full_name=$1, initials=$2, pin=$3, role=$4 WHERE id=$5 RETURNING id`;
+      params = [full_name, initials.toUpperCase(), pin, role||'Worker', id];
+    } else {
+      query = `UPDATE workers SET full_name=$1, initials=$2, role=$3 WHERE id=$4 RETURNING id`;
+      params = [full_name, initials.toUpperCase(), role||'Worker', id];
+    }
+    const result = await pool.query(query, params);
+    if(result.rows.length === 0) return res.status(404).json({ error: 'Worker not found' });
+    res.json({ success: true });
+  } catch(err){ res.status(500).json({ error: err.message }); }
+});
+
 // ── HEALTH CHECK update — include DB status ───────────
 app.get('/api/db/health', async (req, res) => {
   try {
