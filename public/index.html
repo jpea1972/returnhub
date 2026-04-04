@@ -2883,7 +2883,7 @@ async function saveEditFlag(){
     const res = await fetch('/api/db/flags/'+_editFlagId, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ condition, disposition, damage_notes: notes, received_qty, worker_id: dbWorkerId })
+      body: JSON.stringify({ condition, disposition, damage_notes: notes, received_qty, billing_rate: CLIENT_RATES.good, worker_id: dbWorkerId })
     });
     const data = await res.json();
     if(data.success){
