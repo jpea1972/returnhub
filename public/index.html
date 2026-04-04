@@ -1632,15 +1632,43 @@ function startAutoSync(){
 // ══════════════════════════════════════════════
 // LOGIN
 // ══════════════════════════════════════════════
-function buildUCards(){
-  document.getElementById('ucards').innerHTML=USERS.map(u=>`
-    <div class="uc" onclick="selU2('${u.id}')">
-      <div class="ucav" style="background:${u.c}22;color:${u.c}">${u.i}</div>
-      <div style="font-size:12px;font-weight:600;margin-bottom:1px">${u.n}</div>
-      <div style="font-size:10px;color:var(--tx3)">${u.role}</div>
-    </div>`).join('');
+// DB workers for login screen
+let dbWorkers = [];
+
+async function buildUCards(){
+  try {
+    const res = await fetch('/api/db/workers');
+    const data = await res.json();
+    if(data.success && data.workers.length > 0){
+      dbWorkers = data.workers;
+    }
+  } catch(e){
+    console.warn('[Login] Could not load workers from DB, using fallback');
+  }
+
+  const colors = ['#4F8EF7','#22D46A','#F04545','#F5A623','#9B6FF7','#E8FF47','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4'];
+  const workers = dbWorkers.length > 0 ? dbWorkers : USERS.map(u=>({
+    id: u.id, full_name: u.n, initials: u.i, role: u.role
+  }));
+
+  document.getElementById('ucards').innerHTML = workers.map((w,idx) => {
+    const color = colors[idx % colors.length];
+    return `<div class="uc" onclick="selU2('${w.id}','${w.full_name}','${w.initials}','${w.role||'Worker'}')">
+      <div class="ucav" style="background:${color}22;color:${color}">${w.initials}</div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:1px">${w.full_name}</div>
+      <div style="font-size:10px;color:var(--tx3)">${w.role||'Worker'}</div>
+    </div>`;
+  }).join('');
 }
-function selU2(id){selU=USERS.find(u=>u.id===id);document.getElementById('ucards').style.display='none';document.getElementById('pinsec').style.display='block';document.getElementById('pinlbl').innerHTML=`PIN for <strong style="color:var(--Y)">${selU.n}</strong>`;document.getElementById('pin').value='';document.getElementById('pin').focus();}
+
+function selU2(id, name, initials, role){
+  selU = { id, n: name, i: initials, role };
+  document.getElementById('ucards').style.display='none';
+  document.getElementById('pinsec').style.display='block';
+  document.getElementById('pinlbl').innerHTML=`PIN for <strong style="color:var(--Y)">${name}</strong>`;
+  document.getElementById('pin').value='';
+  document.getElementById('pin').focus();
+}
 function selStation(s){
   selStation_val = s;
   document.getElementById('sta-a').style.borderColor = s==='A' ? 'var(--Y)' : 'var(--b2)';
