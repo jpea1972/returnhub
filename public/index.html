@@ -1111,7 +1111,7 @@ async function loadDBCache(){
         : (row.line_items || []);
       RETURNS.push({
         id:       row.order_number,
-        bc:       row.tracking_number || '',
+        bc:       row.tracking_number || row.order_number || '',
         cust:     row.customer_name   || '',
         items: lineItems.map(li=>({
           sku:   li.sku   || '--',
@@ -2518,7 +2518,7 @@ function rQueue(f='all'){
     <td style="font-family:var(--fm);font-size:10px;color:var(--T)">${r.rrid}</td>
     <td style="font-size:11px;color:var(--tx2)">${r.date}</td>
     <td>${r.isPending
-      ?`<button class="btn bs sm" onclick="qGo('${r.bc}')">Process →</button>`
+      ?`<button class="btn bs sm" onclick="qGo('${r.bc||r.id}')">Process →</button>`
       :`<span style="font-size:11px;color:var(--G);font-weight:600">✓ ${r.processedBy}</span>`
     }</td>
   </tr>`).join('');
@@ -2564,7 +2564,7 @@ function rRR(){
     <td><span class="dchip ${r.daysHeld>60?'dr':r.daysHeld>30?'da':'dg2'}">${r.daysHeld}d</span></td>
     <td style="font-size:11px">${r.reason}</td>
     <td><span class="badge ${sm[r.status]||'bgr'}">${st[r.status]||r.status}</span></td>
-    <td><button class="btn bs sm" onclick="qGo('${r.bc}')">Process</button></td>
+    <td><button class="btn bs sm" onclick="qGo('${r.bc||r.id}')">Process</button></td>
   </tr>`).join('');
 }
 
