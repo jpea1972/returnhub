@@ -836,6 +836,16 @@ function saveRates(){
   localStorage.setItem('client_rates_paragon', JSON.stringify(CLIENT_RATES));
   toast('✓ Rates saved — Good: $'+good.toFixed(2)+' / Damaged: $'+damaged.toFixed(2),'s');
 }
+function loadClientRates(){
+  try {
+    const stored = localStorage.getItem('client_rates_paragon');
+    if(stored) CLIENT_RATES = JSON.parse(stored);
+    const gi = document.getElementById('rate-good');
+    const di = document.getElementById('rate-damaged');
+    if(gi) gi.value = CLIENT_RATES.good.toFixed(2);
+    if(di) di.value = CLIENT_RATES.damaged.toFixed(2);
+  } catch(e){ console.error('[Rates]', e.message); }
+}
 let PROCESSED_LOG   = [];     // in-session processed returns
 
 
