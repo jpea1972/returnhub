@@ -561,7 +561,7 @@ app.post('/api/db/sync', async (req, res) => {
                rr_created_at = EXCLUDED.rr_created_at,
                synced_at = NOW()`,
             [
-              item.order?.order_number || item.order?.name || String(item.id),
+              item.order || String(item.id),
               tracking,
               item.shipping_information?.name || '',
               customerZip,
@@ -694,7 +694,7 @@ function scheduleDailySync() {
                  customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
                  sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
                  rr_created_at=EXCLUDED.rr_created_at, synced_at=NOW()`,
-              [item.order?.order_number || item.order?.name || String(item.id), tracking,
+              [item.order || String(item.id), tracking,
                item.shipping_information?.name || '', customerZip,
                JSON.stringify(lineItems), skuFingerprint, carrier, item.created]
             );
