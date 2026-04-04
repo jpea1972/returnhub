@@ -2121,6 +2121,27 @@ async function finalizeProcess(){
   const skuFp = curR._sku_fingerprint ||
     curR.items.map(i=>i.sku).filter(Boolean).sort().join('|');
 
+  // Build flag records if not already built by confirmAndProcess (all-good path)
+  if(!curR._flagRecords){
+    curR._flagRecords = curR.items.map((item, idx) => {
+      const s = itemStates[idx];
+      return {
+        order_number:  curR.id,
+        rma_name:      curR.rma || curR.id,
+        customer_name: curR.cust,
+        reason:        curR.reason || '--',
+        sku:           item.sku,
+        product_name:  item.desc,
+        expected_qty:  item.qty,
+        received_qty:  item.qty,
+        condition:     'Good',
+        disposition:   'Restock',
+        worker_id:     dbWorkerId,
+        session_id:    dbSessionId
+      };
+    });
+  }
+
   // Save to DB
   if(dbSessionId && dbWorkerId){
     try {
