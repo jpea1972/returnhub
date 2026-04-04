@@ -992,8 +992,8 @@ async function loadDBCache(){
           price: parseFloat(li.payment_detail?.amount || 0),
         })),
         reason:   lineItems[0]?.reason || '--',
-        rma:      row.order_number,
-        rrid:     row.order_number,
+        rma:      row.rr_name || row.order_number,
+        rrid:     row.rr_id   || row.order_number,
         track:    row.tracking_number || '--',
         date:     row.rr_created_at
                     ? new Date(row.rr_created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})

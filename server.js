@@ -339,7 +339,7 @@ app.get('/api/db/cache', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT 
-        c.order_number, c.tracking_number, c.customer_name,
+        c.order_number, c.rr_name, c.rr_id, c.tracking_number, c.customer_name,
         c.customer_zip, c.line_items, c.sku_fingerprint,
         c.carrier, c.rr_created_at
        FROM rr_cache c
@@ -549,9 +549,11 @@ app.post('/api/db/sync', async (req, res) => {
         // Upsert into rr_cache
         try {
           await pool.query(
-            `INSERT INTO rr_cache (order_number, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
              ON CONFLICT (order_number) DO UPDATE SET
+               rr_name = EXCLUDED.rr_name,
+               rr_id = EXCLUDED.rr_id,
                tracking_number = EXCLUDED.tracking_number,
                customer_name = EXCLUDED.customer_name,
                customer_zip = EXCLUDED.customer_zip,
@@ -562,6 +564,8 @@ app.post('/api/db/sync', async (req, res) => {
                synced_at = NOW()`,
             [
               item.order || String(item.id),
+              item.name || null,
+              String(item.id),
               tracking,
               item.shipping_information?.name || '',
               customerZip,
