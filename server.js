@@ -778,7 +778,7 @@ app.post('/api/db/workers', async (req, res) => {
     return res.status(400).json({ error: 'PIN must be 4 digits' });
   try {
     const result = await pool.query(
-      `INSERT INTO workers (full_name, initials, pin, role, billing)
+      `INSERT INTO workers (full_name, initials, pin_hash, role, billing)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [full_name, initials.toUpperCase(), pin, role||'Worker', billing||false]
     );
@@ -799,7 +799,7 @@ app.put('/api/db/workers/:id', async (req, res) => {
   try {
     let query, params;
     if(pin){
-      query = `UPDATE workers SET full_name=$1, initials=$2, pin=$3, role=$4 WHERE id=$5 RETURNING id`;
+      query = `UPDATE workers SET full_name=$1, initials=$2, pin_hash=$3, role=$4 WHERE id=$5 RETURNING id`;
       params = [full_name, initials.toUpperCase(), pin, role||'Worker', id];
     } else {
       query = `UPDATE workers SET full_name=$1, initials=$2, role=$3 WHERE id=$4 RETURNING id`;
