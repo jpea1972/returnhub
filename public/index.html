@@ -681,11 +681,11 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
       <div id="bt-r" style="display:none">
         <div class="g2">
           <div class="card"><div class="ch"><div class="ctitle">Rate Config</div></div><div class="cbody">
-            <div class="fg"><label class="fl">Base Rate / Unit</label><div style="display:flex;gap:7px;align-items:center"><span style="color:var(--tx2)">$</span><input class="fi" value="5.00" style="flex:1"></div></div>
-            <div class="fg"><label class="fl">Damaged Rate / Unit</label><div style="display:flex;gap:7px;align-items:center"><span style="color:var(--tx2)">$</span><input class="fi" value="3.50"></div></div>
+            <div class="fg"><label class="fl">Base Rate / Unit</label><div style="display:flex;gap:7px;align-items:center"><span style="color:var(--tx2)">$</span><input class="fi" id="rate-good" value="5.00" style="flex:1"></div></div>
+            <div class="fg"><label class="fl">Damaged Rate / Unit</label><div style="display:flex;gap:7px;align-items:center"><span style="color:var(--tx2)">$</span><input class="fi" id="rate-damaged" value="3.50"></div></div>
             <div class="fg"><label class="fl">Billing Cycle</label><select class="fsel"><option>Weekly (Mon–Sun)</option><option>Bi-Weekly</option><option>Monthly</option></select></div>
             <div class="fg" style="margin-bottom:0"><label class="fl">Client Email</label><input class="fi" value="ops@paragonfitwear.com"></div>
-            <button class="btn bY" style="width:100%;justify-content:center;margin-top:10px" onclick="toast('✓ Rates saved','s')">Save</button>
+            <button class="btn bY" style="width:100%;justify-content:center;margin-top:10px" onclick="saveRates()">Save</button>
           </div></div>
           <div class="card"><div class="ch"><div class="ctitle">Billing Rules</div></div><div class="cbody">
             <div class="tr"><div><div style="font-size:13px;font-weight:500">Bill per unit (not order)</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
@@ -824,6 +824,18 @@ let dbSessionId     = null;   // DB session ID
 let dbWorkerId      = null;   // DB worker integer ID
 let selStation_val  = null;   // 'A' or 'B'
 let RETURNS_INDEX   = {};     // hash map for O(1) tracking lookup
+let CLIENT_RATES    = { good: 5.00, damaged: 3.50 }; // loaded from localStorage
+
+function saveRates(){
+  const good    = parseFloat(document.getElementById('rate-good')?.value || 5.00);
+  const damaged = parseFloat(document.getElementById('rate-damaged')?.value || 3.50);
+  if(isNaN(good) || isNaN(damaged) || good <= 0){
+    toast('Invalid rates','e'); return;
+  }
+  CLIENT_RATES = { good, damaged };
+  localStorage.setItem('client_rates_paragon', JSON.stringify(CLIENT_RATES));
+  toast('✓ Rates saved — Good: $'+good.toFixed(2)+' / Damaged: $'+damaged.toFixed(2),'s');
+}
 let PROCESSED_LOG   = [];     // in-session processed returns
 
 
