@@ -1624,7 +1624,7 @@ function buildZPL(sku, desc, orderId, copies, size){
 }
 
 // ── SYNC LOG ────────────────────────────────────────
-function addSyncLog(action, status, detail){
+async function addSyncLog(action, status, detail){
   // Load sync history from DB
   try {
     const res = await fetch('/api/db/health');
