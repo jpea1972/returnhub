@@ -459,16 +459,16 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <button class="ni" onclick="nav('rr')" id="nav-rr"><span class="ic">🐇</span>Return Rabbit</button>
     <button class="ni" onclick="nav('flags')" id="nav-flags"><span class="ic">⚑</span>Returns Report<span class="nbc r" id="fct">0</span></button>
     <div class="nsl">Analytics</div>
-    <button class="ni" onclick="nav('bi')" id="nav-bi"><span class="ic">📈</span>Launch BI</button>
-    <button class="ni" onclick="nav('dh')" id="nav-dh"><span class="ic">📅</span>Days Held</button>
+    <button class="ni" onclick="nav('bi')" id="nav-bi" style="display:none"><span class="ic">📈</span>Launch BI</button>
+    <button class="ni" onclick="nav('dh')" id="nav-dh" style="display:none"><span class="ic">📅</span>Days Held</button>
     <div class="nsl">Finance</div>
     <button class="ni" onclick="nav('billing')" id="nav-billing" style="display:none"><span class="ic">💰</span>Billing &amp; Invoices</button>
     <div class="nsl">Settings</div>
-    <button class="ni" onclick="nav('email')" id="nav-email"><span class="ic">📧</span>Email Reports</button>
+    <button class="ni" onclick="nav('email')" id="nav-email" style="display:none"><span class="ic">📧</span>Email Reports</button>
     <button class="ni" onclick="nav('printers')" id="nav-printers"><span class="ic">🖨</span>Printer Manager</button>
-    <button class="ni" onclick="nav('merchants')" id="nav-merchants"><span class="ic">🏪</span>Merchants</button>
-    <button class="ni" onclick="nav('rrsettings')" id="nav-rrsettings"><span class="ic">🔌</span>RR Integration</button>
-    <button class="ni" onclick="nav('users')" id="nav-users"><span class="ic">👥</span>Users</button>
+    <button class="ni" onclick="nav('merchants')" id="nav-merchants" style="display:none"><span class="ic">🏪</span>Merchants</button>
+    <button class="ni" onclick="nav('rrsettings')" id="nav-rrsettings" style="display:none"><span class="ic">🔌</span>RR Integration</button>
+    <button class="ni" onclick="nav('users')" id="nav-users" style="display:none"><span class="ic">👥</span>Users</button>
   </nav>
   <div class="sb-u">
     <div class="ur">
@@ -1776,10 +1776,27 @@ async function doLogin(){
     document.getElementById('sav').style.color=cu.c;
     document.getElementById('sname').textContent=cu.n;
     document.getElementById('srole').textContent=cu.role+' · Station '+selStation_val;
-    // Show/hide billing based on role
-    const billingRoles = ['Administrator','Senior Worker'];
+    // Role-based nav access control
+    const role = data.worker.role || 'Worker';
+    const isSenior = role === 'Senior Worker';
+    const isAdmin  = role === 'Administrator' || role === 'Admin';
+
+    // Billing — Admin + Senior + workers with billing permission
+    const showBilling = isAdmin || isSenior || data.worker.billing;
     const navBilling = document.getElementById('nav-billing');
-    if(navBilling) navBilling.style.display = (billingRoles.includes(data.worker.role) || data.worker.billing) ? '' : 'none';
+    if(navBilling) navBilling.style.display = showBilling ? '' : 'none';
+
+    // Senior + Admin only
+    ['nav-bi','nav-dh'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.style.display = (isAdmin || isSenior) ? '' : 'none';
+    });
+
+    // Admin only
+    ['nav-email','nav-merchants','nav-rrsettings','nav-users'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.style.display = isAdmin ? '' : 'none';
+    });
     initApp();
     toast('👋 Welcome, '+cu.n+' — Station '+selStation_val,'s');
     setTimeout(()=>{ loadDBCache(); loadClientRates(); updateScanStats(); updateBillingCards(); updateRRStats(); }, 800);
@@ -1802,6 +1819,11 @@ async function logout(){
   }
   cu=null; dbSessionId=null; dbWorkerId=null; selStation_val=null;
   rrSyncLock=false; RETURNS.length=0; RETURNS_INDEX={}; PROCESSED_LOG=[];
+  // Hide all restricted nav on logout
+  ['nav-billing','nav-bi','nav-dh','nav-email','nav-merchants','nav-rrsettings','nav-users'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
   document.getElementById('ls').style.display='flex';
   document.getElementById('sb').style.display='none';
   document.getElementById('app').style.display='none';
