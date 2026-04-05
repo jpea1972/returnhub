@@ -462,7 +462,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <button class="ni" onclick="nav('bi')" id="nav-bi"><span class="ic">📈</span>Launch BI</button>
     <button class="ni" onclick="nav('dh')" id="nav-dh"><span class="ic">📅</span>Days Held</button>
     <div class="nsl">Finance</div>
-    <button class="ni" onclick="nav('billing')" id="nav-billing"><span class="ic">💰</span>Billing &amp; Invoices</button>
+    <button class="ni" onclick="nav('billing')" id="nav-billing" style="display:none"><span class="ic">💰</span>Billing &amp; Invoices</button>
     <div class="nsl">Settings</div>
     <button class="ni" onclick="nav('email')" id="nav-email"><span class="ic">📧</span>Email Reports</button>
     <button class="ni" onclick="nav('printers')" id="nav-printers"><span class="ic">🖨</span>Printer Manager</button>
@@ -781,9 +781,9 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
           <div class="card"><div class="ch"><div class="ctitle">Billing Rules</div></div><div class="cbody">
             <div class="tr"><div><div style="font-size:13px;font-weight:500">Bill per unit (not order)</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
             <div class="tr"><div><div style="font-size:13px;font-weight:500">Include damaged items</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
-            <div class="tr"><div><div style="font-size:13px;font-weight:500">Auto-generate weekly</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
-            <div class="tr"><div><div style="font-size:13px;font-weight:500">Email automatically</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
-            <div class="tr"><div><div style="font-size:13px;font-weight:500">Supervisor approval</div></div><div class="tgl" onclick="this.classList.toggle('on')"></div></div>
+            <div class="tr"><div><div style="font-size:13px;font-weight:500">Auto-generate weekly</div></div><div class="tgl on" id="tgl-auto" onclick="toggleSetting('tgl-auto','billing_auto_generate')"></div></div>
+            <div class="tr"><div><div style="font-size:13px;font-weight:500">Email automatically</div></div><div class="tgl on" id="tgl-email" onclick="toggleSetting('tgl-email','billing_auto_email')"></div></div>
+            <div class="tr"><div><div style="font-size:13px;font-weight:500">Supervisor approval</div></div><div class="tgl" id="tgl-approval" onclick="toggleSetting('tgl-approval','billing_approval')"></div></div>
           </div></div>
         </div>
       </div>
@@ -928,6 +928,24 @@ function saveRates(){
   localStorage.setItem('client_rates_paragon', JSON.stringify(CLIENT_RATES));
   toast('✓ Rates saved — Good: $'+good.toFixed(2)+' / Damaged: $'+damaged.toFixed(2),'s');
 }
+async function updateRRStats(){
+  try {
+    // Count from rr_cache by status approximation
+    const today = new Date(); today.setHours(0,0,0,0);
+    // Total unprocessed in cache = open RMAs
+    const open = RETURNS.length;
+    // Processed today from DB
+    const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+    const res = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString()));
+    const data = await res.json();
+    const completedToday = parseInt(data.billing?.total_returns||0);
+    document.getElementById('rr-open')      && (document.getElementById('rr-open').textContent      = open);
+    document.getElementById('rr-arrived')   && (document.getElementById('rr-arrived').textContent   = completedToday);
+    document.getElementById('rr-completed') && (document.getElementById('rr-completed').textContent = completedToday);
+    document.getElementById('rr-transit')   && (document.getElementById('rr-transit').textContent   = '—');
+  } catch(e){ console.error('[RRStats]', e.message); }
+}
+
 async function updateScanStats(){
   try {
     const today = new Date(); today.setHours(0,0,0,0);
@@ -1006,6 +1024,23 @@ async function updateBillingCards(){
   } catch(e){ console.error('[BillingCards]', e.message); }
 }
 
+function toggleSetting(id, key){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.toggle('on');
+  localStorage.setItem(key, el.classList.contains('on') ? '1' : '0');
+  toast('✓ Setting saved','s');
+}
+function loadBillingSettings(){
+  ['tgl-auto:billing_auto_generate','tgl-email:billing_auto_email','tgl-approval:billing_approval'].forEach(pair=>{
+    const [id,key] = pair.split(':');
+    const el = document.getElementById(id);
+    if(!el) return;
+    const val = localStorage.getItem(key);
+    if(val === '0') el.classList.remove('on');
+    else el.classList.add('on');
+  });
+}
 function loadClientRates(){
   try {
     const stored = localStorage.getItem('client_rates_paragon');
@@ -1590,6 +1625,34 @@ function buildZPL(sku, desc, orderId, copies, size){
 
 // ── SYNC LOG ────────────────────────────────────────
 function addSyncLog(action, status, detail){
+  // Load sync history from DB
+  try {
+    const res = await fetch('/api/db/health');
+    const data = await res.json();
+    if(data.last_sync){
+      const ls = data.last_sync;
+      const lst = document.getElementById('last-sync-time');
+      const el  = document.getElementById('sync-log');
+      if(lst){
+        const d = new Date(ls.last_sync_run_at);
+        lst.textContent = 'Last sync: '+d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      }
+      if(el){
+        el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--b)">
+          <div style="font-size:13px;color:var(--tx2)">Status</div>
+          <span class="badge ${ls.status==='success'?'bg':'br'}">${ls.status.toUpperCase()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--b)">
+          <div style="font-size:13px;color:var(--tx2)">Records Added</div>
+          <div style="font-family:var(--fm);font-weight:600">${ls.records_added||0}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px">
+          <div style="font-size:13px;color:var(--tx2)">Run At</div>
+          <div style="font-size:12px;color:var(--tx2)">${new Date(ls.last_sync_run_at).toLocaleString()}</div>
+        </div>`;
+      }
+    }
+  } catch(e){ console.error('[SyncLog]', e.message); }
   const el = document.getElementById('sync-log'); if(!el) return;
   const color = status==='success'?'var(--G)':status==='error'?'var(--R)':'var(--A)';
   const icon  = status==='success'?'✓':status==='error'?'✗':'⚑';
@@ -1713,9 +1776,13 @@ async function doLogin(){
     document.getElementById('sav').style.color=cu.c;
     document.getElementById('sname').textContent=cu.n;
     document.getElementById('srole').textContent=cu.role+' · Station '+selStation_val;
+    // Show/hide billing based on role
+    const billingRoles = ['Administrator','Senior Worker'];
+    const navBilling = document.getElementById('nav-billing');
+    if(navBilling) navBilling.style.display = (billingRoles.includes(data.worker.role) || data.worker.billing) ? '' : 'none';
     initApp();
     toast('👋 Welcome, '+cu.n+' — Station '+selStation_val,'s');
-    setTimeout(()=>{ loadDBCache(); loadClientRates(); updateScanStats(); updateBillingCards(); }, 800);
+    setTimeout(()=>{ loadDBCache(); loadClientRates(); updateScanStats(); updateBillingCards(); updateRRStats(); }, 800);
   } catch(e){
     toast('Server error: '+e.message,'e');
     console.error('[Login Error]',e);
@@ -1778,6 +1845,7 @@ function nav(id){
   if(id==='flags'){ rFlags(); }
   if(id==='users'){ loadUsersFromDB(); }
   if(id==='queue'){ loadProcessedReturns().then(()=>rQueue()); }
+  if(id==='rr'){ updateRRStats(); }
 }
 function updateClock(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
 setInterval(updateClock,1000);
@@ -1787,9 +1855,7 @@ setInterval(updateClock,1000);
 // ══════════════════════════════════════════════
 function onBK(e){if(e.key==='Enter')procScan(e.target.value.trim());}
 function onBI(i){clearTimeout(window._bc);if(i.value.length>8)window._bc=setTimeout(()=>procScan(i.value.trim()),270);}
-function demo1(){procScan('9400111899223344556600');}
-function demo2(){procScan('9400111899223344552255');}
-function demo3(){procScan('9400111899223344557711');}
+// demo scan functions removed
 document.addEventListener('keydown',e=>{if(e.key==='F2'){const r=RETURNS[Math.floor(Math.random()*RETURNS.length)];procScan(r.bc);}});
 
 function procScan(code){ procScanLive(code); }
@@ -2858,7 +2924,7 @@ function bTab(id,btn){
   btn.classList.add('active');
   ['w','h','r'].forEach(s=>{const el=document.getElementById('bt-'+s);if(el)el.style.display=s===id?'block':'none';});
   if(id==='w'||id==='h') renderBilling();
-  if(id==='r') loadClientRates();
+  if(id==='r'){ loadClientRates(); loadBillingSettings(); }
 }
 
 // ══════════════════════════════════════════════
