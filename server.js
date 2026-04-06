@@ -760,15 +760,36 @@ app.get('/api/db/flags', async (req, res) => {
 });
 
 // ── MANUAL RETURN REFERENCE ──────────────────────────────────────────
-app.get('/api/db/manual-ref', async (req, res) => {
+app.post('/api/db/manual-ref', async (req, res) => {
+  const { tracking_number, customer_name, order_number, reason, line_items } = req.body;
   try {
     const result = await pool.query(
       "SELECT COUNT(*) as cnt FROM returns WHERE is_manual = true"
     );
     const num = parseInt(result.rows[0].cnt) + 1;
     const ref = 'MAN-' + String(num).padStart(3, '0');
-    res.json({ success: true, ref });
-  } catch(err){ res.status(500).json({ error: err.message }); }
+    const orderNum = order_number || ref;
+    const skuFp = (line_items||[]).map(i=>i.sku).filter(Boolean).sort().join('|');
+
+    // Save to rr_cache so all workstations can see it
+    await pool.query(
+      `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name,
+        line_items, sku_fingerprint, carrier, rr_created_at, synced_at, is_manual)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'USPS',NOW(),NOW(),true)
+       ON CONFLICT (order_number) DO UPDATE SET
+         tracking_number=EXCLUDED.tracking_number,
+         customer_name=EXCLUDED.customer_name,
+         line_items=EXCLUDED.line_items,
+         synced_at=NOW()`,
+      [orderNum, ref, ref, tracking_number||'', customer_name||'',
+       JSON.stringify(line_items||[]), skuFp]
+    );
+
+    res.json({ success: true, ref, order_number: orderNum });
+  } catch(err){
+    console.error('[Manual Ref Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── CLIENT RATES API ─────────────────────────────────────────────────

@@ -1208,7 +1208,17 @@ async function saveManualReturn(){
 
   // Generate MAN reference number
   try {
-    const res = await fetch('/api/db/manual-ref');
+    const res = await fetch('/api/db/manual-ref', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        tracking_number: tracking,
+        customer_name:   customer,
+        order_number:    orderNum || null,
+        reason:          reason,
+        line_items:      items
+      })
+    });
     const data = await res.json();
     const manRef = data.ref || 'MAN-001';
     if(!orderNum) orderNum = manRef;
