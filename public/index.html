@@ -595,7 +595,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         </div>
         <button class="btn bY sm" style="margin-left:auto" onclick="om('emo')">📧 Send Report</button>
       </div>
-      <div class="card"><div class="ch"><div class="ctitle">Return Queue — Paragonfitwear</div><span style="font-size:11px;color:var(--tx3)">Auto-refresh 30s</span></div>
+      <div class="card"><div class="ch"><div class="ctitle">Return Queue — Paragonfitwear</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--tx3)" id="queue-last-refresh">Auto-refresh 30s</span><button class="btn bs sm" onclick="refreshQueue()">↻ Refresh</button></div></div>
         <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Status</th><th>Order</th><th>Customer</th><th>SKU(s)</th><th>Description</th><th>Exp</th><th>Rcvd</th><th>Missing</th><th>Ship Date</th><th>Days Held</th><th>Condition</th><th>RMA</th><th>RR ID</th><th>Date</th><th>Action</th></tr></thead><tbody id="qtbody"></tbody></table></div>
       </div>
     </div>
@@ -2956,6 +2956,25 @@ function rQueue(f='all'){
   </tr>`).join('');
 
   updateQueueBadges();
+}
+
+async function refreshQueue(){
+  const btn = document.querySelector('#qtbody')?.closest('.card')?.querySelector('button');
+  const lbl = document.getElementById('queue-last-refresh');
+  if(lbl) lbl.textContent = 'Refreshing...';
+  try {
+    // Reload DB cache
+    await loadDBCache();
+    // Reload processed returns
+    await loadProcessedReturns();
+    rQueue();
+    const now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    if(lbl) lbl.textContent = 'Last refresh: '+now;
+    toast('✓ Queue refreshed','s');
+  } catch(e){
+    if(lbl) lbl.textContent = 'Refresh failed';
+    console.error('[Refresh]', e.message);
+  }
 }
 
 function updateQueueBadges(){
