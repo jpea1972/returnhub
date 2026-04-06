@@ -843,15 +843,15 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
 
     <!-- ══ DAYS HELD ══ -->
     <div class="sec" id="tab-dh">
-      <div style="background:rgba(20,212,192,.08);border:1px solid rgba(20,212,192,.2);border-radius:var(--rl);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--T)">📅 Days Held = RMA created date minus Shopify ship date. <span style="color:var(--G)">Green &lt;30d</span> · <span style="color:var(--A)">Amber 31–60d</span> · <span style="color:var(--R)">Red &gt;60d</span></div>
+      <div style="background:rgba(20,212,192,.08);border:1px solid rgba(20,212,192,.2);border-radius:var(--rl);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--T)">📅 Days Held = days since RMA was created in Return Rabbit. <span style="color:var(--G)">Green &lt;30d</span> · <span style="color:var(--A)">Amber 31–60d</span> · <span style="color:var(--R)">Red &gt;60d</span></div>
       <div class="srow s4" style="margin-bottom:14px">
-        <div class="sc g"><div class="sl">Avg Days Held</div><div class="sv cg">50</div><div class="subs">All returns</div></div>
+        <div class="sc g"><div class="sl">Avg Days Held</div><div class="sv cg" id="dh-avg">0</div><div class="subs">Pending returns</div></div>
         <div class="sc g"><div class="sl">Under 30 Days</div><div class="sv cg">2</div><div class="subs">Quick returns</div></div>
         <div class="sc a"><div class="sl">31–60 Days</div><div class="sv ca">4</div><div class="subs">Normal window</div></div>
         <div class="sc r"><div class="sl">Over 60 Days</div><div class="sv cr">4</div><div class="subs">Late returns</div></div>
       </div>
       <div class="card"><div class="ch"><div class="ctitle">Ship Date → Return Date Analysis</div><span style="font-size:11px;color:var(--tx3)">Shopify Orders API</span></div>
-        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Order ID</th><th>Customer</th><th>SKU</th><th>Product</th><th>Ship Date</th><th>RMA Created</th><th>Days Held</th><th>Reason</th><th>Condition</th><th>Outcome</th></tr></thead><tbody id="dh-tbody"></tbody></table></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Order</th><th>Customer</th><th>SKU(s)</th><th>Reason</th><th>RMA Created</th><th>Days Held</th></tr></thead><tbody id="dh-tbody"></tbody></table></div>
       </div>
     </div>
 
@@ -1048,20 +1048,61 @@ async function saveRates(){
 }
 async function updateRRStats(){
   try {
-    // Count from rr_cache by status approximation
-    const today = new Date(); today.setHours(0,0,0,0);
-    // Total unprocessed in cache = open RMAs
-    const open = RETURNS.length;
-    // Processed today from DB
-    const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
-    const res = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString()));
+    const res = await fetch('/api/db/rr-stats');
     const data = await res.json();
-    const completedToday = parseInt(data.billing?.total_returns||0);
-    document.getElementById('rr-open')      && (document.getElementById('rr-open').textContent      = open);
-    document.getElementById('rr-arrived')   && (document.getElementById('rr-arrived').textContent   = completedToday);
-    document.getElementById('rr-completed') && (document.getElementById('rr-completed').textContent = completedToday);
-    document.getElementById('rr-transit')   && (document.getElementById('rr-transit').textContent   = '—');
+    if(data.success){
+      document.getElementById('rr-open')      && (document.getElementById('rr-open').textContent      = data.open_rmas);
+      document.getElementById('rr-transit')   && (document.getElementById('rr-transit').textContent   = data.in_transit);
+      document.getElementById('rr-arrived')   && (document.getElementById('rr-arrived').textContent   = data.arrived_today);
+      document.getElementById('rr-completed') && (document.getElementById('rr-completed').textContent = data.completed);
+    }
   } catch(e){ console.error('[RRStats]', e.message); }
+}
+
+async function renderDaysHeld(){
+  try {
+    const res = await fetch('/api/db/days-held');
+    const data = await res.json();
+    if(!data.success) return;
+
+    const s = data.summary;
+    // Update stat cards if they exist
+    const cards = {
+      'dh-total': s.total,
+      'dh-green': s.green,
+      'dh-amber': s.amber,
+      'dh-red':   s.red,
+      'dh-avg':   s.avg_days+'d'
+    };
+    Object.entries(cards).forEach(([id,val])=>{
+      const el = document.getElementById(id);
+      if(el) el.textContent = val;
+    });
+
+    const tb = document.getElementById('dh-tbody');
+    if(!tb) return;
+
+    if(data.rows.length === 0){
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--tx3)">No pending returns</td></tr>';
+      return;
+    }
+
+    tb.innerHTML = data.rows.map(r => {
+      const lis = Array.isArray(r.line_items) ? r.line_items : [];
+      const skus = lis.map(li=>li.sku||'').filter(Boolean).join(', ') || '—';
+      const reason = lis[0]?.reason || '—';
+      const chipClass = r.status==='green' ? 'dg2' : r.status==='amber' ? 'da' : 'dr';
+      const created = new Date(r.rr_created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      return `<tr>
+        <td class="mono" style="font-size:10px">${r.order_number}</td>
+        <td style="font-size:12px">${r.customer_name||'—'}</td>
+        <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${skus}</td>
+        <td style="font-size:11px;color:var(--tx2)">${reason}</td>
+        <td style="font-size:11px">${created}</td>
+        <td><span class="dchip ${chipClass}">${r.days_held}d</span></td>
+      </tr>`;
+    }).join('');
+  } catch(e){ console.error('[DaysHeld]', e.message); }
 }
 
 async function updateScanStats(){
@@ -2151,6 +2192,7 @@ function nav(id){
   if(id==='flags'){ rFlags(); }
   if(id==='users'){ loadUsersFromDB(); }
   if(id==='queue'){ loadProcessedReturns().then(()=>rQueue()); }
+  if(id==='dh'){ renderDaysHeld(); }
   if(id==='rr'){ updateRRStats(); }
 }
 function updateClock(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
@@ -3345,6 +3387,7 @@ function renderBI(){
 // ══════════════════════════════════════════════
 function renderDH(){
   const tb=document.getElementById('dh-tbody');if(!tb)return;
+  // Days Held now loaded from DB via renderDaysHeld()
   tb.innerHTML=DAYS_HELD.map(r=>`<tr>
     <td class="mono">${r.oid}</td><td style="font-size:12px">${r.cust}</td>
     <td style="font-family:var(--fm);font-size:10px;color:var(--Y)">${r.sku}</td>

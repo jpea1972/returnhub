@@ -792,6 +792,73 @@ app.post('/api/db/manual-ref', async (req, res) => {
   }
 });
 
+// ── RR STATS API ─────────────────────────────────────────────────────
+app.get('/api/db/rr-stats', async (req, res) => {
+  try {
+    // Count by status from line_items JSONB
+    const result = await pool.query(`
+      SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN line_items->0->>'status' IN (
+          'Awaiting Refund Approval','Awaiting Exchange Approval',
+          'Awaiting Qualification Approval','Added to processing queue',
+          'Payment pending for this request'
+        ) THEN 1 END) as open_rmas,
+        COUNT(CASE WHEN line_items->0->>'status' = 'Added to processing queue' THEN 1 END) as in_transit,
+        COUNT(CASE WHEN line_items->0->>'status' IN ('Refund Success','Exchange Success') THEN 1 END) as completed
+      FROM rr_cache
+      WHERE order_number NOT IN (SELECT DISTINCT order_number FROM returns)
+    `);
+    // Arrived today = processed today
+    const todayRes = await pool.query(`
+      SELECT COUNT(*) as arrived_today
+      FROM returns
+      WHERE received_at >= CURRENT_DATE
+    `);
+    res.json({
+      success: true,
+      open_rmas:     parseInt(result.rows[0].open_rmas||0),
+      in_transit:    parseInt(result.rows[0].in_transit||0),
+      arrived_today: parseInt(todayRes.rows[0].arrived_today||0),
+      completed:     parseInt(result.rows[0].completed||0)
+    });
+  } catch(err){ res.status(500).json({ error: err.message }); }
+});
+
+// ── DAYS HELD API ─────────────────────────────────────────────────────
+app.get('/api/db/days-held', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        c.order_number,
+        c.customer_name,
+        c.rr_created_at,
+        c.line_items,
+        c.carrier,
+        EXTRACT(DAY FROM NOW() - c.rr_created_at)::int as days_held,
+        CASE
+          WHEN EXTRACT(DAY FROM NOW() - c.rr_created_at) <= 30 THEN 'green'
+          WHEN EXTRACT(DAY FROM NOW() - c.rr_created_at) <= 60 THEN 'amber'
+          ELSE 'red'
+        END as status
+      FROM rr_cache c
+      WHERE c.order_number NOT IN (SELECT DISTINCT order_number FROM returns)
+      ORDER BY days_held DESC
+      LIMIT 500
+    `);
+    // Summary stats
+    const rows = result.rows;
+    const summary = {
+      total: rows.length,
+      green: rows.filter(r=>r.status==='green').length,
+      amber: rows.filter(r=>r.status==='amber').length,
+      red:   rows.filter(r=>r.status==='red').length,
+      avg_days: rows.length ? Math.round(rows.reduce((s,r)=>s+parseInt(r.days_held||0),0)/rows.length) : 0
+    };
+    res.json({ success: true, summary, rows });
+  } catch(err){ res.status(500).json({ error: err.message }); }
+});
+
 // ── CLIENT RATES API ─────────────────────────────────────────────────
 app.get('/api/db/rates', async (req, res) => {
   try {
