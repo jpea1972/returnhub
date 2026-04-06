@@ -618,7 +618,18 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <div class="sec" id="tab-flags">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <div><div style="font-family:var(--fd);font-size:17px;font-weight:700">Returns Report — Paragonfitwear</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">All processed returns · Damage · Partial · Missing · Wrong product</div></div>
-        <div style="display:flex;gap:7px"><button class="btn bs sm" onclick="dlReport()">↓ Excel</button><button class="btn bY sm" onclick="om('emo')">📧 Email to Paragon</button></div>
+        <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2)">
+            <label style="font-family:var(--fm);text-transform:uppercase;letter-spacing:.5px">From</label>
+            <input type="date" id="flags-date-from" class="fi" style="padding:5px 8px;font-size:11px;width:130px">
+            <label style="font-family:var(--fm);text-transform:uppercase;letter-spacing:.5px">To</label>
+            <input type="date" id="flags-date-to" class="fi" style="padding:5px 8px;font-size:11px;width:130px">
+            <button class="btn bs sm" onclick="applyFlagsDateFilter()">Apply</button>
+            <button class="btn bs sm" onclick="clearFlagsDateFilter()">All</button>
+          </div>
+          <button class="btn bs sm" onclick="dlReport()">↓ Excel</button>
+          <button class="btn bY sm" onclick="om('emo')">📧 Email to Paragon</button>
+        </div>
       </div>
       <div class="srow s4" style="margin-bottom:14px">
         <div class="sc g"><div class="sl">Total Items</div><div class="sv cg" id="fl-t">0</div><div class="subs">All conditions</div></div>
@@ -864,7 +875,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         </div>
         <div id="bill-w"></div>
       </div>
-      <div id="bt-h" style="display:none"><div class="card"><div class="ch"><div class="ctitle">Invoice History</div></div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Invoice #</th><th>Period</th><th>Orders</th><th>Units</th><th>Rate</th><th>Total</th><th>Status</th><th>Sent</th></tr></thead><tbody id="ih-tbody"></tbody></table></div></div></div>
+      <div id="bt-h" style="display:none"><div class="card"><div class="ch"><div class="ctitle">Invoice History</div></div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Invoice #</th><th>Period</th><th>Orders</th><th>Units</th><th>Rate</th><th>Total</th><th>Status</th><th>Sent</th><th></th></tr></thead><tbody id="ih-tbody"></tbody></table></div></div></div>
       <div id="bt-r" style="display:none">
         <div class="g2">
           <div class="card"><div class="ch"><div class="ctitle">Rate Config</div></div><div class="cbody">
@@ -3036,6 +3047,21 @@ async function loadFlags(conditionFilter='all', dateFrom=null, dateTo=null){
   } catch(e){ console.error('[Flags Load]', e.message); }
 }
 
+function applyFlagsDateFilter(){
+  const from = document.getElementById('flags-date-from')?.value;
+  const to   = document.getElementById('flags-date-to')?.value;
+  if(!from){ toast('Select a start date','e'); return; }
+  rFlags('all', from ? new Date(from).toISOString() : null, to ? new Date(to+'T23:59:59').toISOString() : null);
+}
+
+function clearFlagsDateFilter(){
+  const fi = document.getElementById('flags-date-from');
+  const ti = document.getElementById('flags-date-to');
+  if(fi) fi.value = '';
+  if(ti) ti.value = '';
+  rFlags('all');
+}
+
 async function rFlags(conditionFilter='all'){
   await loadFlags(conditionFilter);
   const tb = document.getElementById('ftbody');
@@ -3193,6 +3219,45 @@ async function renderBilling(){
   }
 }
 
+function getInvoiceNum(monday){
+  const year = monday.getFullYear();
+  // ISO week number
+  const d = new Date(Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const weekNo = Math.ceil((((d-yearStart)/86400000)+1)/7);
+  return 'INV-'+year+'-W'+String(weekNo).padStart(2,'0');
+}
+
+async function exportInvoiceCSV(mondayISO, saturdayISO, invNum){
+  try {
+    const res = await fetch('/api/db/returns/search?limit=500&date_from='+encodeURIComponent(mondayISO)+'&date_to='+encodeURIComponent(saturdayISO));
+    const data = await res.json();
+    const returns = data.returns || [];
+    if(returns.length === 0){ toast('No returns for this period','e'); return; }
+    const headers = ['Order','Customer','SKU(s)','Condition','Units','Rate','Subtotal','Worker','Date'];
+    const rows = returns.map(r=>{
+      const lis = Array.isArray(r.line_items)?r.line_items:[];
+      const skus = lis.map(li=>li.sku||'').filter(Boolean).join('; ');
+      const qty  = lis.reduce((s,li)=>s+(li.quantity||1),0)||1;
+      const date = r.received_at ? new Date(r.received_at).toLocaleDateString('en-US') : '';
+      return [r.order_number, r.customer_name, skus, r.condition, qty,
+              '$'+parseFloat(r.billing_rate||0).toFixed(2),
+              '$'+parseFloat(r.billed_amount||0).toFixed(2),
+              r.worker_initials||'', date
+      ].map(v=>'"'+(String(v||'').replace(/"/g,'""'))+'"');
+    });
+    const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+    const blob = new Blob([csv],{type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = invNum+'-Paragonfitwear.csv';
+    a.click();
+    toast('↓ '+invNum+' downloaded','s');
+  } catch(e){ toast('Export failed: '+e.message,'e'); }
+}
+
 async function renderInvoiceHistory(){
   const ih=document.getElementById('ih-tbody');
   if(!ih) return;
@@ -3200,7 +3265,7 @@ async function renderInvoiceHistory(){
   try {
     const weeks=[];
     const now=new Date();
-    for(let w=0;w<4;w++){
+    for(let w=0;w<12;w++){
       const monday=new Date(now);
       const dow=now.getDay();
       monday.setDate(now.getDate()-(dow===0?6:dow-1)-(w*7));
@@ -3223,13 +3288,14 @@ async function renderInvoiceHistory(){
       const orders=parseInt(w.total_returns||0);
       const tr=ih.insertRow();
       tr.innerHTML=`
-        <td style="font-family:var(--fm);color:var(--Y)">INV-${new Date().getFullYear()}-W${String(Math.ceil((w.monday.getDate())/7)+i).padStart(2,'0')}</td>
+        <td style="font-family:var(--fm);color:var(--Y)">${getInvoiceNum(w.monday)}</td>
         <td>${label}</td><td>${orders}</td>
         <td style="font-family:var(--fm);font-weight:600">${good+dmg}</td>
         <td class="mono">$${CLIENT_RATES.good.toFixed(2)}/$${CLIENT_RATES.damaged.toFixed(2)}</td>
         <td style="font-weight:700;color:var(--G)">$${total.toFixed(2)}</td>
         <td><span class="badge ${i===0?'ba':'bg'}">${i===0?'CURRENT':'COMPLETE'}</span></td>
-        <td style="font-size:11px;color:var(--tx2)">${i===0?'This week':w.saturday.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</td>`;
+        <td style="font-size:11px;color:var(--tx2)">${i===0?'This week':w.saturday.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</td>
+        <td><button class="btn bs sm" onclick="exportInvoiceCSV('${w.monday.toISOString()}','${w.saturday.toISOString()}','${getInvoiceNum(w.monday)}')">↓ CSV</button></td>`;
     });
   } catch(e){ console.error('[InvoiceHistory]',e.message); }
 }
