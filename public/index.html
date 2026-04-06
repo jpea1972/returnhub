@@ -512,6 +512,9 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         <div style="font-size:13px;color:var(--tx2)" id="ssub">Point scanner at shipping label · click and type</div>
         <input class="bc-in" id="bc" placeholder="Scan barcode or tracking number…" autocomplete="off" onkeydown="onBK(event)" oninput="onBI(this)">
       </div>
+      <div style="text-align:center;margin-top:8px">
+        <button class="btn bs sm" onclick="openManualReturn()" style="font-size:11px;color:var(--tx3)">✚ Manual Entry — Return not in RR</button>
+      </div>
 
       <!-- RETURN PANEL -->
       <div class="rp" id="rp">
@@ -628,6 +631,59 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
       </div>
     </div>
 
+    <!-- ══ MANUAL RETURN MODAL ══ -->
+    <div class="cmo" id="manual-return-modal">
+      <div class="cmbox" style="border-color:var(--B);width:580px;max-height:90vh;overflow-y:auto">
+        <div class="cmh">
+          <div class="cmt">✏ Manual Entry — Return not in RR</div>
+          <button class="btn bs sm" onclick="cm('manual-return-modal')">Close</button>
+        </div>
+        <div class="cmb" style="padding:18px">
+          <div style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);border-radius:var(--r);padding:10px;margin-bottom:14px;font-size:12px;color:var(--B)">ℹ This return was not generated from Return Rabbit. It will be assigned a MAN-XXXX reference number and processed identically to RR returns.</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fg">
+              <label class="fl">Tracking Number</label>
+              <input class="fi" id="mr-tracking" placeholder="9400111899..." style="font-family:var(--fm)">
+            </div>
+            <div class="fg">
+              <label class="fl">Order # (if known)</label>
+              <input class="fi" id="mr-order" placeholder="e.g. @702162 or leave blank">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fg">
+              <label class="fl">Customer Name</label>
+              <input class="fi" id="mr-customer" placeholder="First Last">
+            </div>
+            <div class="fg">
+              <label class="fl">Return Reason</label>
+              <select class="fi" id="mr-reason">
+                <option>Doesn't fit</option>
+                <option>Changed my mind</option>
+                <option>Defective item received</option>
+                <option>Wrong item received</option>
+                <option>Not as described</option>
+                <option>Damaged in shipping</option>
+                <option>Manual Entry</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:8px">Items Returned</div>
+            <div id="mr-items-list"></div>
+            <button class="btn bs sm" onclick="addManualItem()" style="width:100%;justify-content:center;margin-top:6px">+ Add Item</button>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn bY" style="flex:1;justify-content:center" onclick="saveManualReturn()">✓ Create Return &amp; Process</button>
+            <button class="btn bs" style="flex:1;justify-content:center" onclick="cm('manual-return-modal')">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- ══ EXTRA ITEM MODAL ══ -->
     <div class="cmo" id="extra-item-modal">
       <div class="cmbox" style="border-color:var(--A);width:480px">
@@ -1092,6 +1148,110 @@ function loadBillingSettings(){
     else el.classList.add('on');
   });
 }
+// ── MANUAL RETURN ─────────────────────────────────────────────────────
+let manualItems = [];
+let manualItemCount = 0;
+
+function openManualReturn(){
+  manualItems = [];
+  manualItemCount = 0;
+  document.getElementById('mr-tracking').value = document.getElementById('bc')?.value?.trim() || '';
+  document.getElementById('mr-order').value = '';
+  document.getElementById('mr-customer').value = '';
+  document.getElementById('mr-reason').value = 'Manual Entry';
+  document.getElementById('mr-items-list').innerHTML = '';
+  addManualItem(); // start with one empty item row
+  om('manual-return-modal');
+}
+
+function addManualItem(){
+  const idx = manualItemCount++;
+  const div = document.createElement('div');
+  div.id = 'mr-item-'+idx;
+  div.style.cssText = 'display:grid;grid-template-columns:2fr 2fr 1fr auto;gap:6px;margin-bottom:6px;align-items:end';
+  div.innerHTML = `
+    <div><label class="fl" style="font-size:10px">SKU</label>
+      <input class="fi" id="mri-sku-${idx}" placeholder="SKU" style="font-family:var(--fm);font-size:12px"></div>
+    <div><label class="fl" style="font-size:10px">Description</label>
+      <input class="fi" id="mri-desc-${idx}" placeholder="Product name" style="font-size:12px"></div>
+    <div><label class="fl" style="font-size:10px">Qty</label>
+      <input class="fi" id="mri-qty-${idx}" type="number" min="1" value="1" style="font-size:12px"></div>
+    <button class="btn bs sm" onclick="document.getElementById('mr-item-${idx}').remove()" style="margin-bottom:0;padding:8px 10px">×</button>`;
+  document.getElementById('mr-items-list').appendChild(div);
+}
+
+async function saveManualReturn(){
+  const tracking = document.getElementById('mr-tracking').value.trim();
+  const customer = document.getElementById('mr-customer').value.trim();
+  const reason   = document.getElementById('mr-reason').value;
+  let   orderNum = document.getElementById('mr-order').value.trim();
+
+  if(!customer){ toast('Customer name required','e'); return; }
+
+  // Collect items
+  const items = [];
+  for(let i=0; i<manualItemCount; i++){
+    const skuEl  = document.getElementById('mri-sku-'+i);
+    const descEl = document.getElementById('mri-desc-'+i);
+    const qtyEl  = document.getElementById('mri-qty-'+i);
+    if(!skuEl) continue;
+    const sku = skuEl.value.trim().toUpperCase();
+    if(!sku) continue;
+    items.push({
+      sku, name: sku,
+      product_name: descEl?.value.trim() || sku,
+      quantity: parseInt(qtyEl?.value)||1,
+      reason, status: 'pending', type: 'Return'
+    });
+  }
+  if(items.length === 0){ toast('Add at least one item','e'); return; }
+
+  // Generate MAN reference number
+  try {
+    const res = await fetch('/api/db/manual-ref');
+    const data = await res.json();
+    const manRef = data.ref || 'MAN-001';
+    if(!orderNum) orderNum = manRef;
+
+    // Build return object identical to RR cache format
+    const skuFp = items.map(i=>i.sku).sort().join('|');
+    const manReturn = {
+      id:          orderNum,
+      bc:          tracking || manRef,
+      track:       tracking || '',
+      cust:        customer,
+      reason:      reason,
+      rma:         manRef,
+      rrid:        manRef,
+      date:        new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+      shipDate:    '--',
+      daysHeld:    0,
+      items:       items.map(i=>({ sku:i.sku, desc:i.product_name, qty:i.quantity, image:'' })),
+      status:      'pending',
+      _sku_fingerprint: skuFp,
+      _carrier:    'USPS',
+      _rr_created_at: new Date().toISOString(),
+      _is_manual:  true,
+      _manual_ref: manRef
+    };
+
+    // Add to RETURNS cache
+    RETURNS.unshift(manReturn);
+    if(tracking){
+      if(!RETURNS_INDEX[tracking]) RETURNS_INDEX[tracking] = [];
+      RETURNS_INDEX[tracking].push(manReturn);
+    }
+
+    cm('manual-return-modal');
+    document.getElementById('bc').value = '';
+    toast('✓ Manual return created: '+manRef,'s');
+
+    // Directly show the return for processing
+    await handleFoundReturn(manReturn, tracking||manRef, 'manual_entry');
+
+  } catch(e){ toast('Error: '+e.message,'e'); console.error('[Manual Return]',e); }
+}
+
 function addExtraItem(){
   if(!curR){ toast('No active return','e'); return; }
   document.getElementById('ei-sku').value = '';
@@ -2553,6 +2713,7 @@ async function finalizeProcess(){
         rr_created_at:         curR._rr_created_at || null,
         notes:                 null,
         is_duplicate_override: curR._duplicateOverride || false,
+        is_manual:             curR._is_manual || false,
         line_items:            curR.items.map(i=>({sku:i.sku, product_name:i.desc, quantity:i.qty}))
       };
       const res  = await fetch('/api/db/returns',{

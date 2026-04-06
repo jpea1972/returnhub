@@ -270,7 +270,7 @@ app.post('/api/db/returns', async (req, res) => {
     order_number, shopify_order_id, tracking_number, carrier,
     customer_name, customer_zip, sku_fingerprint, condition,
     billing_rate, billed_amount, worker_id, session_id, station,
-    label_printed, rr_created_at, notes, is_duplicate_override,
+    label_printed, rr_created_at, notes, is_duplicate_override, is_manual,
     line_items
   } = req.body;
 
@@ -288,15 +288,15 @@ app.post('/api/db/returns', async (req, res) => {
         customer_name, customer_zip, sku_fingerprint, condition,
         billing_rate, billed_amount, worker_id, session_id, station,
         label_printed, label_printed_at, rr_created_at, received_at, 
-        notes, is_duplicate_override
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW(),$17,$18)
+        notes, is_duplicate_override, is_manual
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW(),$17,$18,$19)
       RETURNING id`,
       [
         order_number, shopify_order_id || null, tracking_number, carrier || 'USPS',
         customer_name, customer_zip || null, sku_fingerprint, condition,
         billing_rate, billed_amount, worker_id, session_id || null, station || null,
         label_printed || false, label_printed ? new Date() : null,
-        rr_created_at || null, notes || null, is_duplicate_override || false
+        rr_created_at || null, notes || null, is_duplicate_override || false, is_manual || false
       ]
     );
 
@@ -757,6 +757,18 @@ app.get('/api/db/flags', async (req, res) => {
     console.error('[Flags Get Error]', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── MANUAL RETURN REFERENCE ──────────────────────────────────────────
+app.get('/api/db/manual-ref', async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT COUNT(*) as cnt FROM returns WHERE is_manual = true"
+    );
+    const num = parseInt(result.rows[0].cnt) + 1;
+    const ref = 'MAN-' + String(num).padStart(3, '0');
+    res.json({ success: true, ref });
+  } catch(err){ res.status(500).json({ error: err.message }); }
 });
 
 // ── CLIENT RATES API ─────────────────────────────────────────────────
