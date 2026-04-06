@@ -363,7 +363,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     </div>
     <div class="cmf">
       <button class="btn bs" onclick="cancelConfirm()">← Go Back &amp; Re-check</button>
-      <button class="btn bA lg" onclick="confirmAndProcess()">Confirm &amp; Process Return</button>
+      <button class="btn bs sm" style="margin-bottom:8px;width:100%;justify-content:center" onclick="addExtraItem()">+ Add Extra Item Not in RR</button><button class="btn bA lg" onclick="confirmAndProcess()">Confirm &amp; Process Return</button>
     </div>
   </div>
 </div>
@@ -627,6 +627,45 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
       </div>
     </div>
 
+    <!-- ══ EXTRA ITEM MODAL ══ -->
+    <div class="cmo" id="extra-item-modal">
+      <div class="cmbox" style="border-color:var(--A);width:480px">
+        <div class="cmh">
+          <div class="cmt">➕ Add Extra Item</div>
+          <button class="btn bs sm" onclick="cm('extra-item-modal')">Close</button>
+        </div>
+        <div class="cmb" style="padding:18px">
+          <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:var(--r);padding:10px;margin-bottom:14px;font-size:12px;color:var(--A)">⚠ This item was not in the original RR return. It will be flagged as an unexpected item and billed at standard rate.</div>
+          <div class="fg">
+            <label class="fl">SKU</label>
+            <input class="fi" id="ei-sku" placeholder="e.g. NYS-LEGBB-BLK-M" style="font-family:var(--fm)">
+          </div>
+          <div class="fg">
+            <label class="fl">Description</label>
+            <input class="fi" id="ei-desc" placeholder="e.g. RecStretch Legging Black M">
+          </div>
+          <div class="fg">
+            <label class="fl">Quantity Received</label>
+            <input class="fi" id="ei-qty" type="number" min="1" value="1">
+          </div>
+          <div class="fg">
+            <label class="fl">Condition</label>
+            <select class="fi" id="ei-condition">
+              <option value="Good">Good</option>
+              <option value="Damaged">Damaged</option>
+            </select>
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">Notes</label>
+            <textarea class="fta" id="ei-notes" placeholder="Why was this item not in the original return? Any relevant details..." style="min-height:60px"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button class="btn bY" style="flex:1;justify-content:center" onclick="saveExtraItem()">✓ Add to Return</button>
+            <button class="btn bs" style="flex:1;justify-content:center" onclick="cm('extra-item-modal')">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- ══ USER MODAL ══ -->
     <div class="cmo" id="user-modal">
       <div class="cmbox" style="border-color:var(--Y);width:440px">
@@ -909,7 +948,7 @@ const DAYS_HELD=[];
 
 const BI_DATA=[];
 
-const DMG_CHECKS=['Torn / Ripped seam','Staining / Soiling','Odor / Smell','Missing tags','Wrong product','Shipping damage'];
+const DMG_CHECKS=['Torn / Ripped seam','Makeup Stains','Deodorant Stains','V-Stain','Staining / Soiling','Dry Skin','Odor / Smell','Perfume','It\'s been worn a lot','Lots of Lint','A lot of Hair','Lots of Pet Hair','Snag in Material','Bad Order','Missing tags','Shipping damage'];
 let cu=null,selU=null,curR=null,myCount=0,curPSku=null,emailList=['ops@paragonfitwear.com'];
 let dbSessionId     = null;   // DB session ID
 let sessionStartTime = null;  // when current session started
@@ -1041,6 +1080,45 @@ function loadBillingSettings(){
     else el.classList.add('on');
   });
 }
+function addExtraItem(){
+  if(!curR){ toast('No active return','e'); return; }
+  document.getElementById('ei-sku').value = '';
+  document.getElementById('ei-desc').value = '';
+  document.getElementById('ei-qty').value = '1';
+  document.getElementById('ei-condition').value = 'Good';
+  document.getElementById('ei-notes').value = '';
+  om('extra-item-modal');
+}
+
+function saveExtraItem(){
+  const sku       = document.getElementById('ei-sku').value.trim().toUpperCase();
+  const desc      = document.getElementById('ei-desc').value.trim();
+  const qty       = parseInt(document.getElementById('ei-qty').value) || 1;
+  const condition = document.getElementById('ei-condition').value;
+  const notes     = document.getElementById('ei-notes').value.trim();
+
+  if(!sku){ toast('SKU is required','e'); return; }
+
+  // Add to curR.items
+  const newItem = { sku, desc: desc||sku, qty, image: '', _extra: true };
+  curR.items.push(newItem);
+
+  // Auto-set state for this item
+  const newIdx = curR.items.length - 1;
+  itemStates[newIdx] = {
+    state: condition === 'Good' ? 'checked' : 'damaged',
+    dmgNotes: notes || 'Extra item not in original RR return',
+    dmgDisp: 'Restock',
+    rcvQty: qty
+  };
+
+  cm('extra-item-modal');
+  toast('✓ Extra item added: '+sku,'s');
+
+  // Re-render the item checklist
+  showDetail(curR);
+}
+
 function loadClientRates(){
   try {
     const stored = localStorage.getItem('client_rates_paragon');
