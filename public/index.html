@@ -958,15 +958,26 @@ let selStation_val  = null;   // 'A' or 'B'
 let RETURNS_INDEX   = {};     // hash map for O(1) tracking lookup
 let CLIENT_RATES    = { good: 5.00, damaged: 3.50 }; // loaded from localStorage
 
-function saveRates(){
-  const good    = parseFloat(document.getElementById('rate-good')?.value || 5.00);
-  const damaged = parseFloat(document.getElementById('rate-damaged')?.value || 3.50);
-  if(isNaN(good) || isNaN(damaged) || good <= 0){
-    toast('Invalid rates','e'); return;
-  }
-  CLIENT_RATES = { good, damaged };
-  localStorage.setItem('client_rates_paragon', JSON.stringify(CLIENT_RATES));
-  toast('✓ Rates saved — Good: $'+good.toFixed(2)+' / Damaged: $'+damaged.toFixed(2),'s');
+async function saveRates(){
+  const good    = parseFloat(document.getElementById('rate-good')?.value);
+  const damaged = parseFloat(document.getElementById('rate-damaged')?.value || good);
+  if(isNaN(good) || good <= 0){ toast('Invalid rate','e'); return; }
+  try {
+    const res = await fetch('/api/db/rates', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ good_rate: good, damaged_rate: damaged, worker_id: dbWorkerId })
+    });
+    const data = await res.json();
+    if(data.success){
+      CLIENT_RATES = { good: data.good_rate, damaged: data.damaged_rate };
+      localStorage.setItem('client_rates_paragon', JSON.stringify(CLIENT_RATES));
+      toast('✓ Rates saved to DB — $'+good.toFixed(2)+'/unit for all workers','s');
+      updateBillingCards();
+    } else {
+      toast('Save failed: '+data.error,'e');
+    }
+  } catch(e){ toast('Error: '+e.message,'e'); }
 }
 async function updateRRStats(){
   try {
@@ -1120,15 +1131,28 @@ function saveExtraItem(){
   showDetail(curR);
 }
 
-function loadClientRates(){
+async function loadClientRates(){
   try {
-    const stored = localStorage.getItem('client_rates_paragon');
-    if(stored) CLIENT_RATES = JSON.parse(stored);
+    const res = await fetch('/api/db/rates');
+    const data = await res.json();
+    if(data.success){
+      CLIENT_RATES = { good: parseFloat(data.good_rate), damaged: parseFloat(data.damaged_rate||data.good_rate) };
+      // Also save to localStorage as fallback
+      localStorage.setItem('client_rates_paragon', JSON.stringify(CLIENT_RATES));
+      console.log('[Rates] Loaded from DB:', CLIENT_RATES);
+    }
     const gi = document.getElementById('rate-good');
     const di = document.getElementById('rate-damaged');
     if(gi) gi.value = CLIENT_RATES.good.toFixed(2);
     if(di) di.value = CLIENT_RATES.damaged.toFixed(2);
-  } catch(e){ console.error('[Rates]', e.message); }
+  } catch(e){
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem('client_rates_paragon');
+      if(stored) CLIENT_RATES = JSON.parse(stored);
+    } catch(e2){}
+    console.error('[Rates] DB load failed, using localStorage:', e.message);
+  }
 }
 let PROCESSED_LOG   = [];     // in-session processed returns
 

@@ -759,7 +759,34 @@ app.get('/api/db/flags', async (req, res) => {
   }
 });
 
-// ── WORKERS API ──────────────────────────────────────────────────────
+// ── CLIENT RATES API ─────────────────────────────────────────────────
+app.get('/api/db/rates', async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT good_rate, damaged_rate, updated_at FROM client_rates WHERE client='paragonfitwear' ORDER BY id DESC LIMIT 1"
+    );
+    if(result.rows.length === 0){
+      return res.json({ success: true, good_rate: 4.00, damaged_rate: 4.00 });
+    }
+    res.json({ success: true, ...result.rows[0] });
+  } catch(err){ res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/db/rates', async (req, res) => {
+  const { good_rate, damaged_rate, worker_id } = req.body;
+  if(!good_rate || isNaN(good_rate)){
+    return res.status(400).json({ error: 'good_rate required' });
+  }
+  try {
+    await pool.query(
+      "UPDATE client_rates SET good_rate=$1, damaged_rate=$2, updated_by=$3, updated_at=NOW() WHERE client='paragonfitwear'",
+      [parseFloat(good_rate), parseFloat(damaged_rate||good_rate), worker_id||null]
+    );
+    res.json({ success: true, good_rate: parseFloat(good_rate), damaged_rate: parseFloat(damaged_rate||good_rate) });
+  } catch(err){ res.status(500).json({ error: err.message }); }
+});
+
+// ── WORKERS API ───────────────────────────────────────────────────────
 app.get('/api/db/workers', async (req, res) => {
   try {
     const result = await pool.query(
