@@ -1114,7 +1114,7 @@ async function updateScanStats(){
     const res = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString()));
     const data = await res.json();
     const b = data.billing || {};
-    const totalToday = parseInt(b.total_returns||0);
+    const totalToday = parseInt(b.total_units||0)||parseInt(b.total_returns||0);
     const pending    = RETURNS.length;
     const nonGood    = parseInt(b.total_damaged||0) + parseInt(b.total_not_returned||0);
 
