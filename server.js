@@ -415,6 +415,7 @@ app.get('/api/db/reports/productivity', async (req, res) => {
         w.initials, w.full_name,
         DATE_TRUNC('hour', r.received_at) as hour,
         COUNT(*) as returns_processed,
+        SUM(CASE WHEN r.billing_rate > 0 THEN ROUND(r.billed_amount / r.billing_rate) ELSE 0 END) as units_processed,
         SUM(r.billed_amount) as revenue_generated,
         COUNT(CASE WHEN r.condition = 'Good' THEN 1 END) as good_count,
         COUNT(CASE WHEN r.condition = 'Damaged' THEN 1 END) as damaged_count,

@@ -1129,7 +1129,7 @@ async function updateScanStats(){
       const wRes = await fetch('/api/db/reports/productivity?worker_id='+dbWorkerId+'&date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString()));
       const wData = await wRes.json();
       const rows = wData.rows || [];
-      const myUnits = rows.reduce((s,r)=>s+parseInt(r.returns_processed||0),0);
+      const myUnits = rows.reduce((s,r)=>s+parseInt(r.units_processed||r.returns_processed||0),0);
       const sessionHours = Math.max(0.1, (Date.now() - sessionStartTime.getTime()) / 3600000);
       const myUph = (myUnits / sessionHours).toFixed(1);
       document.getElementById('s5').textContent = myCount;
@@ -1175,7 +1175,7 @@ async function updateBillingCards(){
     const tRes = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(todayStart.toISOString()));
     const tData = await tRes.json();
     const tb2 = tData.billing || {};
-    const todayUnits = parseInt(tb2.total_good||0) + parseInt(tb2.total_damaged||0);
+    const todayUnits = parseInt(tb2.total_units||0)||parseInt(tb2.total_good||0)+parseInt(tb2.total_damaged||0);
     const hoursSinceOpen = Math.max(1, (Date.now() - todayStart.getTime()) / 3600000);
     const uph = todayUnits > 0 ? (todayUnits / Math.min(hoursSinceOpen, 8)).toFixed(1) : '0';
     document.getElementById('bill-uph') && (document.getElementById('bill-uph').textContent = uph);
