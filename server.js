@@ -399,6 +399,39 @@ app.get('/api/db/returns/search', async (req, res) => {
   }
 });
 
+// ── PRODUCTIVITY SUMMARY: Worker leaderboard ─────────────────────────
+app.get('/api/db/reports/productivity-summary', async (req, res) => {
+  const { date_from, date_to } = req.query;
+  if(!date_from) return res.status(400).json({ error: 'date_from required' });
+  try {
+    const where = ['r.received_at >= $1'];
+    const params = [date_from];
+    if(date_to){ where.push('r.received_at <= $2'); params.push(date_to); }
+    const result = await pool.query(
+      `SELECT
+        w.id as worker_id,
+        w.initials,
+        w.full_name,
+        COUNT(*) as total_returns,
+        SUM(CASE WHEN r.billing_rate > 0 THEN ROUND(r.billed_amount / r.billing_rate) ELSE 0 END) as total_units,
+        SUM(r.billed_amount) as total_revenue,
+        COUNT(CASE WHEN r.condition = 'Good' THEN 1 END) as good_count,
+        COUNT(CASE WHEN r.condition = 'Damaged' THEN 1 END) as damaged_count,
+        COUNT(CASE WHEN r.condition = 'Not Returned' THEN 1 END) as not_returned_count,
+        MIN(r.received_at) as first_scan,
+        MAX(r.received_at) as last_scan,
+        EXTRACT(EPOCH FROM (MAX(r.received_at) - MIN(r.received_at)))/3600 as hours_active
+       FROM returns r
+       JOIN workers w ON r.worker_id = w.id
+       WHERE ${where.join(' AND ')}
+       GROUP BY w.id, w.initials, w.full_name
+       ORDER BY total_units DESC`,
+      params
+    );
+    res.json({ success: true, workers: result.rows });
+  } catch(err){ res.status(500).json({ error: err.message }); }
+});
+
 // ── PRODUCTIVITY: Worker hourly stats ────────────────
 app.get('/api/db/reports/productivity', async (req, res) => {
   const { worker_id, date_from, date_to } = req.query;

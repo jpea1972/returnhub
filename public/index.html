@@ -459,7 +459,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
     <button class="ni" onclick="nav('rr')" id="nav-rr"><span class="ic">🐇</span>Return Rabbit</button>
     <button class="ni" onclick="nav('flags')" id="nav-flags"><span class="ic">⚑</span>Returns Report<span class="nbc r" id="fct">0</span></button>
     <div class="nsl">Analytics</div>
-    <button class="ni" onclick="nav('bi')" id="nav-bi" style="display:none"><span class="ic">📈</span>Launch BI</button>
+    <button class="ni" onclick="nav('bi')" id="nav-bi" style="display:none"><span class="ic">📊</span>Productivity</button>
     <button class="ni" onclick="nav('dh')" id="nav-dh" style="display:none"><span class="ic">📅</span>Days Held</button>
     <div class="nsl">Finance</div>
     <button class="ni" onclick="nav('billing')" id="nav-billing" style="display:none"><span class="ic">💰</span>Billing &amp; Invoices</button>
@@ -516,6 +516,11 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         <button class="btn bs sm" onclick="openManualReturn()" style="font-size:11px;color:var(--tx3)">✚ Manual Entry — Return not in RR</button>
       </div>
 
+      <!-- LIVE LEADERBOARD -->
+      <div id="live-leaderboard" style="margin-top:8px;display:none">
+        <div style="font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:6px;text-align:center">Today's Leaderboard</div>
+        <div id="leaderboard-rows" style="display:grid;gap:4px"></div>
+      </div>
       <!-- RETURN PANEL -->
       <div class="rp" id="rp">
 
@@ -825,20 +830,31 @@ body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh
         </div>
       </div>
     </div>
-    <!-- ══ LAUNCH BI ══ -->
+    <!-- ══ PRODUCTIVITY DASHBOARD ══ -->
     <div class="sec" id="tab-bi">
-      <div style="background:rgba(155,111,247,.08);border:1px solid rgba(155,111,247,.2);border-radius:var(--rl);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--P)">📈 Return Rate = Returns ÷ Units Shipped × 100%. &gt;15% on a launch = critical. Combine with Days Held to distinguish sizing issues from quality defects.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div><div style="font-family:var(--fd);font-size:17px;font-weight:700">Productivity Dashboard</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Worker performance by units processed</div></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <input type="date" id="prod-date-from" class="fi" style="padding:5px 8px;font-size:11px;width:130px">
+          <span style="color:var(--tx3);font-size:11px">to</span>
+          <input type="date" id="prod-date-to" class="fi" style="padding:5px 8px;font-size:11px;width:130px">
+          <button class="btn bs sm" onclick="loadProductivity()">Apply</button>
+          <button class="btn bs sm" onclick="setProductivityToday()">Today</button>
+          <button class="btn bs sm" onclick="setProductivityWeek()">This Week</button>
+        </div>
+      </div>
       <div class="srow s4" style="margin-bottom:14px">
-        <div class="sc r"><div class="sl">Critical Launches</div><div class="sv cr">2</div><div class="subs">&gt;15% rate</div></div>
-        <div class="sc a"><div class="sl">Under Investigation</div><div class="sv ca">3</div><div class="subs">10–15% rate</div></div>
-        <div class="sc g"><div class="sl">Healthy</div><div class="sv cg">5</div><div class="subs">&lt;10% rate</div></div>
-        <div class="sc p"><div class="sl">Promo Launches</div><div class="sv cp">4</div><div class="subs">This quarter</div></div>
+        <div class="sc g"><div class="sl">Total Units</div><div class="sv cg" id="prod-units">0</div><div class="subs" id="prod-units-sub">Today</div></div>
+        <div class="sc b"><div class="sl">Total Returns</div><div class="sv cb" id="prod-returns">0</div><div class="subs">Orders processed</div></div>
+        <div class="sc y"><div class="sl">Total Revenue</div><div class="sv cy" id="prod-revenue">$0</div><div class="subs">Billable amount</div></div>
+        <div class="sc a"><div class="sl">Active Workers</div><div class="sv ca" id="prod-workers">0</div><div class="subs">With activity</div></div>
       </div>
-      <div class="bi-grid">
-        <div class="card"><div class="ch"><div class="ctitle">Return Rate by Launch</div><span style="font-size:11px;color:var(--tx3)">Q1 2026</span></div><div class="cbody" id="bi-launches"></div></div>
-        <div class="card"><div class="ch"><div class="ctitle">Return Reasons</div></div><div class="cbody" id="bi-reasons"></div></div>
+      <div class="card">
+        <div class="ch"><div class="ctitle">🏆 Worker Leaderboard</div><span style="font-size:11px;color:var(--tx3)" id="prod-period-label">Today</span></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr>
+          <th>#</th><th>Worker</th><th>Units</th><th>Returns</th><th>Revenue</th><th>Good</th><th>Damaged</th><th>Not Returned</th><th>Units/Hr</th><th>Active Time</th>
+        </tr></thead><tbody id="prod-tbody"></tbody></table></div>
       </div>
-      <div class="card" style="margin-top:14px"><div class="ch"><div class="ctitle">🔍 Key Insights &amp; Recommendations</div></div><div class="cbody" id="bi-insights"></div></div>
     </div>
 
     <!-- ══ DAYS HELD ══ -->
@@ -1103,6 +1119,114 @@ async function renderDaysHeld(){
       </tr>`;
     }).join('');
   } catch(e){ console.error('[DaysHeld]', e.message); }
+}
+
+function setProductivityToday(){
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('prod-date-from').value = today;
+  document.getElementById('prod-date-to').value   = today;
+  loadProductivity();
+}
+
+function setProductivityWeek(){
+  const now = new Date();
+  const dow = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate()-(dow===0?6:dow-1));
+  document.getElementById('prod-date-from').value = monday.toISOString().slice(0,10);
+  document.getElementById('prod-date-to').value   = now.toISOString().slice(0,10);
+  loadProductivity();
+}
+
+async function loadProductivity(){
+  const from = document.getElementById('prod-date-from')?.value;
+  const to   = document.getElementById('prod-date-to')?.value;
+  if(!from){ toast('Select a date range','e'); return; }
+  try {
+    const dateFrom = new Date(from).toISOString();
+    const dateTo   = to ? new Date(to+'T23:59:59').toISOString() : new Date(from+'T23:59:59').toISOString();
+    const res  = await fetch('/api/db/reports/productivity-summary?date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo));
+    const data = await res.json();
+    if(!data.success) return;
+
+    const workers = data.workers || [];
+    const totalUnits   = workers.reduce((s,w)=>s+parseInt(w.total_units||0),0);
+    const totalReturns = workers.reduce((s,w)=>s+parseInt(w.total_returns||0),0);
+    const totalRev     = workers.reduce((s,w)=>s+parseFloat(w.total_revenue||0),0);
+
+    document.getElementById('prod-units')   && (document.getElementById('prod-units').textContent   = totalUnits);
+    document.getElementById('prod-returns') && (document.getElementById('prod-returns').textContent = totalReturns);
+    document.getElementById('prod-revenue') && (document.getElementById('prod-revenue').textContent = '$'+totalRev.toFixed(2));
+    document.getElementById('prod-workers') && (document.getElementById('prod-workers').textContent = workers.length);
+
+    const label = from === to ? new Date(from).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}) : from+' – '+to;
+    document.getElementById('prod-period-label') && (document.getElementById('prod-period-label').textContent = label);
+    document.getElementById('prod-units-sub')    && (document.getElementById('prod-units-sub').textContent    = label);
+
+    const tb = document.getElementById('prod-tbody');
+    if(!tb) return;
+
+    if(workers.length === 0){
+      tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--tx3)">No activity for this period</td></tr>';
+      return;
+    }
+
+    tb.innerHTML = workers.map((w,i) => {
+      const units   = parseInt(w.total_units||0);
+      const returns = parseInt(w.total_returns||0);
+      const revenue = parseFloat(w.total_revenue||0);
+      const good    = parseInt(w.good_count||0);
+      const damaged = parseInt(w.damaged_count||0);
+      const notRet  = parseInt(w.not_returned_count||0);
+      const hours   = Math.max(0.1, parseFloat(w.hours_active||0));
+      const uph     = (units / Math.max(0.1, hours)).toFixed(1);
+      const activeTime = hours < 1 ? Math.round(hours*60)+'m' : hours.toFixed(1)+'h';
+      const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+      return `<tr>
+        <td style="text-align:center;font-size:16px">${medal||'#'+(i+1)}</td>
+        <td><div style="display:flex;align-items:center;gap:7px">
+          <div style="width:26px;height:26px;border-radius:50%;background:#E8FF4722;color:#E8FF47;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px">${w.initials}</div>
+          <span style="font-weight:600">${w.full_name}</span>
+        </div></td>
+        <td style="font-family:var(--fm);font-weight:700;color:var(--G);font-size:15px">${units}</td>
+        <td style="font-family:var(--fm)">${returns}</td>
+        <td style="font-weight:600;color:var(--Y)">$${revenue.toFixed(2)}</td>
+        <td style="font-family:var(--fm);color:var(--G)">${good}</td>
+        <td style="font-family:var(--fm);color:var(--R)">${damaged}</td>
+        <td style="font-family:var(--fm);color:var(--tx3)">${notRet}</td>
+        <td><span class="badge ${parseFloat(uph)>=30?'bg':parseFloat(uph)>=20?'by':'bgr'}">${uph}/hr</span></td>
+        <td style="font-size:11px;color:var(--tx2)">${activeTime}</td>
+      </tr>`;
+    }).join('');
+  } catch(e){ console.error('[Productivity]', e.message); }
+}
+
+async function updateLiveLeaderboard(){
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const res = await fetch('/api/db/reports/productivity-summary?date_from='+encodeURIComponent(new Date(today).toISOString())+'&date_to='+encodeURIComponent(new Date(today+'T23:59:59').toISOString()));
+    const data = await res.json();
+    if(!data.success) return;
+    const workers = data.workers || [];
+    const board = document.getElementById('leaderboard-rows');
+    const container = document.getElementById('live-leaderboard');
+    if(!board || !container) return;
+    if(workers.length === 0){ container.style.display='none'; return; }
+    container.style.display = 'block';
+    board.innerHTML = workers.slice(0,5).map((w,i)=>{
+      const units = parseInt(w.total_units||0);
+      const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+      const isMe = w.worker_id == dbWorkerId;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${isMe?'rgba(232,255,71,.06)':'var(--bg3)'};border-radius:var(--r);border:1px solid ${isMe?'rgba(232,255,71,.2)':'var(--b)'}">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="font-size:14px">${medal||'#'+(i+1)}</span>
+          <div style="width:22px;height:22px;border-radius:50%;background:#E8FF4722;color:#E8FF47;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:9px">${w.initials}</div>
+          <span style="font-size:12px;font-weight:${isMe?700:400}">${w.full_name}</span>
+        </div>
+        <span style="font-family:var(--fm);font-weight:700;color:var(--G)">${units} units</span>
+      </div>`;
+    }).join('');
+  } catch(e){}
 }
 
 async function updateScanStats(){
@@ -2124,7 +2248,7 @@ async function doLogin(){
     });
     initApp();
     toast('👋 Welcome, '+cu.n+' — Station '+selStation_val,'s');
-    setTimeout(()=>{ loadDBCache(); loadClientRates(); updateScanStats(); updateBillingCards(); updateRRStats(); }, 800);
+    setTimeout(()=>{ loadDBCache(); loadClientRates(); updateScanStats(); updateBillingCards(); updateRRStats(); updateLiveLeaderboard(); }, 800);
   } catch(e){
     toast('Server error: '+e.message,'e');
     console.error('[Login Error]',e);
@@ -2177,7 +2301,7 @@ function initApp(){
   // RR status updated only when RR Integration tab is visible
   setTimeout(()=>{ renderEndpointList(); setRRStatus('disconnected'); }, 200);
 }
-const TITLES={scan:'Scan & Process',rrsettings:'Return Rabbit Integration',queue:'Return Queue',rr:'Return Rabbit Feed',flags:'Returns Report',bi:'Launch & Promo BI',dh:'Days Held Analysis',billing:'Billing & Invoices',email:'Email Reports',printers:'Printer Manager',merchants:'Merchants',users:'Users & Access'};
+const TITLES={scan:'Scan & Process',rrsettings:'Return Rabbit Integration',queue:'Return Queue',rr:'Return Rabbit Feed',flags:'Returns Report',bi:'Productivity Dashboard',dh:'Days Held Analysis',billing:'Billing & Invoices',email:'Email Reports',printers:'Printer Manager',merchants:'Merchants',users:'Users & Access'};
 function nav(id){
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
@@ -2193,6 +2317,7 @@ function nav(id){
   if(id==='users'){ loadUsersFromDB(); }
   if(id==='queue'){ loadProcessedReturns().then(()=>rQueue()); }
   if(id==='dh'){ renderDaysHeld(); }
+  if(id==='bi'){ setProductivityToday(); }
   if(id==='rr'){ updateRRStats(); }
 }
 function updateClock(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
@@ -2824,6 +2949,7 @@ async function finalizeProcess(){
   document.getElementById('s5').textContent=myCount;
   toast('✓ '+curR.id+' processed — saved','s');
   loadProcessedReturns().then(()=>{ if(document.getElementById('tab-queue')?.classList.contains('active')) rQueue(); });
+  updateLiveLeaderboard();
   updateScanStats(); updateBillingCards();
   if(document.getElementById('tab-billing')?.classList.contains('active')) renderBilling();
   clearScan();
