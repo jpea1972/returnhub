@@ -448,7 +448,10 @@ app.get('/api/db/reports/billing', async (req, res) => {
         COUNT(CASE WHEN condition = 'Not Returned' THEN 1 END) as total_not_returned,
         SUM(CASE WHEN condition = 'Good' THEN billed_amount ELSE 0 END) as good_revenue,
         SUM(CASE WHEN condition = 'Damaged' THEN billed_amount ELSE 0 END) as damaged_revenue,
-        SUM(billed_amount) as total_revenue
+        SUM(billed_amount) as total_revenue,
+        SUM(CASE WHEN billing_rate > 0 THEN ROUND(billed_amount / billing_rate) ELSE 0 END) as total_units,
+        SUM(CASE WHEN condition = 'Good' AND billing_rate > 0 THEN ROUND(billed_amount / billing_rate) ELSE 0 END) as good_units,
+        SUM(CASE WHEN condition = 'Damaged' AND billing_rate > 0 THEN ROUND(billed_amount / billing_rate) ELSE 0 END) as damaged_units
        FROM returns
        WHERE ${where.join(' AND ')}`,
       params

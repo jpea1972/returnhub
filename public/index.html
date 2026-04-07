@@ -1154,7 +1154,7 @@ async function updateBillingCards(){
     const wb = wData.billing || {};
     const wGood = parseInt(wb.total_good||0);
     const wDmg  = parseInt(wb.total_damaged||0);
-    const wUnits = wGood + wDmg;
+    const wUnits = parseInt(wb.total_units||0)||wGood+wDmg;
     const wTotal = parseFloat(wb.total_revenue||0);
     // MTD
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -3195,7 +3195,7 @@ async function renderBilling(){
     const dmgRate=CLIENT_RATES.damaged;
     const totalGood=parseInt(billing.total_good||0);
     const totalDmg=parseInt(billing.total_damaged||0);
-    const totalUnits=totalGood+totalDmg;
+    const totalUnits=parseInt(billing.total_units||0)||totalGood+totalDmg;
     const totalRev=parseFloat(billing.total_revenue||0);
 
     const weekLabel=monday.toLocaleDateString('en-US',{month:'short',day:'numeric'})+
@@ -3332,7 +3332,7 @@ async function renderInvoiceHistory(){
       tr.innerHTML=`
         <td style="font-family:var(--fm);color:var(--Y)">${getInvoiceNum(w.monday)}</td>
         <td>${label}</td><td>${orders}</td>
-        <td style="font-family:var(--fm);font-weight:600">${good+dmg}</td>
+        <td style="font-family:var(--fm);font-weight:600">${parseInt(w.total_units||0)||good+dmg}</td>
         <td class="mono">$${CLIENT_RATES.good.toFixed(2)}/$${CLIENT_RATES.damaged.toFixed(2)}</td>
         <td style="font-weight:700;color:var(--G)">$${total.toFixed(2)}</td>
         <td><span class="badge ${i===0?'ba':'bg'}">${i===0?'CURRENT':'COMPLETE'}</span></td>
