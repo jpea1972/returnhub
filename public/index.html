@@ -1122,7 +1122,7 @@ async function renderDaysHeld(){
 }
 
 function setProductivityToday(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toLocaleDateString('en-CA'); // local date YYYY-MM-DD
   document.getElementById('prod-date-from').value = today;
   document.getElementById('prod-date-to').value   = today;
   loadProductivity();
@@ -1203,7 +1203,7 @@ async function loadProductivity(){
 
 async function updateLiveLeaderboard(){
   try {
-    const today = new Date().toISOString().slice(0,10);
+    const today = new Date().toLocaleDateString('en-CA'); // local date YYYY-MM-DD
     const res = await fetch('/api/db/reports/productivity-summary?date_from='+encodeURIComponent(new Date(today).toISOString())+'&date_to='+encodeURIComponent(new Date(today+'T23:59:59').toISOString()));
     const data = await res.json();
     if(!data.success) return;
