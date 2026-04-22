@@ -235,24 +235,33 @@ app.post('/api/db/scan-events', async (req, res) => {
 
 // ── DUPLICATE CHECK — fires first on every scan ───────
 app.post('/api/db/duplicate-check', async (req, res) => {
-  const { tracking_number, order_number, customer_name, sku_fingerprint } = req.body;
+  const { tracking_number, order_number, customer_name, sku_fingerprint, merchant_id } = req.body;
   if (!tracking_number || !order_number || !customer_name || !sku_fingerprint) {
     return res.status(400).json({ error: 'All 4 fields required for duplicate check' });
   }
   try {
+    const where = [
+      'r.tracking_number = $1',
+      'r.order_number = $2',
+      'r.customer_name = $3',
+      'r.sku_fingerprint = $4'
+    ];
+    const params = [tracking_number, order_number, customer_name, sku_fingerprint];
+    if (merchant_id) {
+      where.push('r.merchant_id = $5');
+      params.push(parseInt(merchant_id));
+    }
     const result = await pool.query(
       `SELECT r.id, r.order_number, r.tracking_number, r.customer_name, 
               r.sku_fingerprint, r.condition, r.received_at, r.is_duplicate_override,
+              r.merchant_id,
               w.full_name as processed_by, w.initials as processed_by_initials
        FROM returns r
        LEFT JOIN workers w ON r.worker_id = w.id
-       WHERE r.tracking_number = $1
-         AND r.order_number = $2
-         AND r.customer_name = $3
-         AND r.sku_fingerprint = $4
+       WHERE ${where.join(' AND ')}
        ORDER BY r.received_at DESC
        LIMIT 1`,
-      [tracking_number, order_number, customer_name, sku_fingerprint]
+      params
     );
     if (result.rows.length > 0) {
       res.json({ duplicate: true, existing: result.rows[0] });
@@ -272,7 +281,7 @@ app.post('/api/db/returns', async (req, res) => {
     customer_name, customer_zip, sku_fingerprint, condition,
     billing_rate, billed_amount, worker_id, session_id, station,
     label_printed, rr_created_at, notes, is_duplicate_override, is_manual,
-    line_items
+    line_items, merchant_id
   } = req.body;
 
   if (!order_number || !tracking_number || !condition || !worker_id) {
@@ -289,15 +298,16 @@ app.post('/api/db/returns', async (req, res) => {
         customer_name, customer_zip, sku_fingerprint, condition,
         billing_rate, billed_amount, worker_id, session_id, station,
         label_printed, label_printed_at, rr_created_at, received_at, 
-        notes, is_duplicate_override, is_manual
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW(),$17,$18,$19)
+        notes, is_duplicate_override, is_manual, merchant_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW(),$17,$18,$19,$20)
       RETURNING id`,
       [
         order_number, shopify_order_id || null, tracking_number, carrier || 'USPS',
         customer_name, customer_zip || null, sku_fingerprint, condition,
         billing_rate, billed_amount, worker_id, session_id || null, station || null,
         label_printed || false, label_printed ? new Date() : null,
-        rr_created_at || null, notes || null, is_duplicate_override || false, is_manual || false
+        rr_created_at || null, notes || null, is_duplicate_override || false, is_manual || false,
+        merchant_id || 1
       ]
     );
 
@@ -338,20 +348,41 @@ app.post('/api/db/returns', async (req, res) => {
 
 // ── RR CACHE: Serve unprocessed returns to browser ───
 // This replaces fetchRR() hitting RR API directly
+// ?merchant_id=X filters to a specific merchant's returns
 app.get('/api/db/cache', async (req, res) => {
+  const { merchant_id } = req.query;
   try {
+    const where = ["c.rr_created_at >= '2026-01-01'"];
+    const params = [];
+    let i = 1;
+
+    if (merchant_id) {
+      where.push(`c.merchant_id = $${i}`);
+      params.push(parseInt(merchant_id));
+      i++;
+      // Exclude only returns for this merchant
+      where.push(`c.order_number NOT IN (
+        SELECT DISTINCT order_number FROM returns
+        WHERE is_duplicate_override = false AND merchant_id = $${i}
+      )`);
+      params.push(parseInt(merchant_id));
+      i++;
+    } else {
+      where.push(`c.order_number NOT IN (
+        SELECT DISTINCT order_number FROM returns
+        WHERE is_duplicate_override = false
+      )`);
+    }
+
     const result = await pool.query(
       `SELECT 
         c.order_number, c.rr_name, c.rr_id, c.tracking_number, c.customer_name,
         c.customer_zip, c.line_items, c.sku_fingerprint,
-        c.carrier, c.rr_created_at
+        c.carrier, c.rr_created_at, c.merchant_id
        FROM rr_cache c
-       WHERE c.rr_created_at >= '2026-01-01'
-         AND c.order_number NOT IN (
-           SELECT DISTINCT order_number FROM returns
-           WHERE is_duplicate_override = false
-         )
-       ORDER BY c.rr_created_at DESC`
+       WHERE ${where.join(' AND ')}
+       ORDER BY c.rr_created_at DESC`,
+      params
     );
     res.json({ success: true, count: result.rows.length, returns: result.rows });
   } catch (err) {
@@ -361,13 +392,17 @@ app.get('/api/db/cache', async (req, res) => {
 });
 
 // ── SEARCH: Returns (processed) ──────────────────────
+// ?merchant_id=X filters to a specific merchant
 app.get('/api/db/returns/search', async (req, res) => {
-  const { q, condition, worker_id, date_from, date_to, limit = 100, offset = 0 } = req.query;
+  const { q, condition, worker_id, date_from, date_to, merchant_id, limit = 100, offset = 0 } = req.query;
   try {
     let where = ['1=1'];
     let params = [];
     let i = 1;
 
+    if (merchant_id) {
+      where.push(`r.merchant_id = $${i}`); params.push(parseInt(merchant_id)); i++;
+    }
     if (q) {
       where.push(`(r.order_number ILIKE $${i} OR r.tracking_number ILIKE $${i} OR r.customer_name ILIKE $${i} OR EXISTS (SELECT 1 FROM return_line_items li WHERE li.return_id = r.id AND (li.sku ILIKE $${i} OR li.product_name ILIKE $${i})))`);
       params.push(`%${q}%`);
@@ -401,13 +436,16 @@ app.get('/api/db/returns/search', async (req, res) => {
 });
 
 // ── PRODUCTIVITY SUMMARY: Worker leaderboard ─────────────────────────
+// ?merchant_id=X filters to a specific merchant
 app.get('/api/db/reports/productivity-summary', async (req, res) => {
-  const { date_from, date_to } = req.query;
+  const { date_from, date_to, merchant_id } = req.query;
   if(!date_from) return res.status(400).json({ error: 'date_from required' });
   try {
     const where = ['r.received_at >= $1'];
     const params = [date_from];
-    if(date_to){ where.push('r.received_at <= $2'); params.push(date_to); }
+    let i = 2;
+    if(date_to){ where.push(`r.received_at <= $${i}`); params.push(date_to); i++; }
+    if(merchant_id){ where.push(`r.merchant_id = $${i}`); params.push(parseInt(merchant_id)); i++; }
     const result = await pool.query(
       `SELECT
         w.id as worker_id,
@@ -434,12 +472,14 @@ app.get('/api/db/reports/productivity-summary', async (req, res) => {
 });
 
 // ── PRODUCTIVITY: Worker hourly stats ────────────────
+// ?merchant_id=X filters to a specific merchant
 app.get('/api/db/reports/productivity', async (req, res) => {
-  const { worker_id, date_from, date_to } = req.query;
+  const { worker_id, date_from, date_to, merchant_id } = req.query;
   try {
     let where = ['1=1'];
     let params = [];
     let i = 1;
+    if (merchant_id) { where.push(`r.merchant_id = $${i}`); params.push(parseInt(merchant_id)); i++; }
     if (worker_id) { where.push(`r.worker_id = $${i}`); params.push(worker_id); i++; }
     if (date_from) { where.push(`r.received_at >= $${i}`); params.push(date_from); i++; }
     if (date_to)   { where.push(`r.received_at <= $${i}`); params.push(date_to); i++; }
@@ -469,12 +509,15 @@ app.get('/api/db/reports/productivity', async (req, res) => {
 });
 
 // ── BILLING: Summary for period ───────────────────────
+// ?merchant_id=X filters to a specific merchant
 app.get('/api/db/reports/billing', async (req, res) => {
-  const { date_from, date_to } = req.query;
+  const { date_from, date_to, merchant_id } = req.query;
   try {
     const where = ['received_at >= $1'];
     const params = [date_from];
-    if(date_to){ where.push('received_at <= $2'); params.push(date_to); }
+    let i = 2;
+    if(date_to){ where.push(`received_at <= $${i}`); params.push(date_to); i++; }
+    if(merchant_id){ where.push(`merchant_id = $${i}`); params.push(parseInt(merchant_id)); i++; }
     const result = await pool.query(
       `SELECT 
         COUNT(*) as total_returns,
@@ -501,27 +544,54 @@ app.get('/api/db/reports/billing', async (req, res) => {
 // ── SYNC: Incremental RR sync into rr_cache ───────────
 // Pulls only records newer than MAX(rr_created_at) in DB
 // Cutoff: Jan 1 2026 — never pulls older than that
+// ?merchant_id=X syncs a specific merchant using their API key
 app.post('/api/db/sync', async (req, res) => {
-  if (!process.env.RR_TOKEN) {
-    return res.status(400).json({ error: 'RR_TOKEN not configured' });
+  const merchantId = req.body.merchant_id || req.query.merchant_id;
+
+  // Resolve API key: merchant-specific or fallback to env
+  let apiToken = process.env.RR_TOKEN;
+  let apiBaseUrl = process.env.RR_BASE_URL || 'https://api.returnrabbit.app';
+  let resolvedMerchantId = merchantId ? parseInt(merchantId) : 1;
+
+  if (merchantId) {
+    try {
+      const merchantRes = await pool.query(
+        'SELECT api_key, api_url, platform FROM merchants WHERE id = $1 AND active = true',
+        [merchantId]
+      );
+      if (merchantRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Merchant not found or inactive' });
+      }
+      const merchant = merchantRes.rows[0];
+      if (merchant.api_key) apiToken = merchant.api_key;
+      if (merchant.api_url) apiBaseUrl = merchant.api_url;
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to load merchant: ' + err.message });
+    }
+  }
+
+  if (!apiToken) {
+    return res.status(400).json({ error: 'No API token configured (check merchant api_key or RR_TOKEN env)' });
   }
 
   const CUTOFF = '2026-01-01T00:00:00Z';
   const MAX_PAGES = 400;
   const PAGE_SIZE = 50;
-  const RR_BASE_URL = process.env.RR_BASE_URL || 'https://api.returnrabbit.app';
 
   try {
-    // Get last synced timestamp
+    // Get last synced timestamp for this merchant
     const checkpointRes = await pool.query(
-      "SELECT last_synced_at FROM sync_checkpoints WHERE source = 'return_rabbit' ORDER BY id DESC LIMIT 1"
+      `SELECT last_synced_at FROM sync_checkpoints
+       WHERE source = 'return_rabbit' AND (merchant_id = $1 OR ($1 IS NULL AND merchant_id IS NULL))
+       ORDER BY id DESC LIMIT 1`,
+      [resolvedMerchantId]
     );
     const lastSyncedAt = checkpointRes.rows.length > 0
       ? new Date(checkpointRes.rows[0].last_synced_at)
       : new Date(CUTOFF);
 
     const isInitialSync = checkpointRes.rows.length === 0;
-    console.log(`[Sync] Starting ${isInitialSync ? 'INITIAL' : 'incremental'} sync. Last synced: ${lastSyncedAt.toISOString()}`);
+    console.log(`[Sync] Starting ${isInitialSync ? 'INITIAL' : 'incremental'} sync for merchant ${resolvedMerchantId}. Last synced: ${lastSyncedAt.toISOString()}`);
 
     let page = 1;
     let recordsAdded = 0;
@@ -530,10 +600,10 @@ app.post('/api/db/sync', async (req, res) => {
     let newestCreatedAt = lastSyncedAt;
 
     while (!done && page <= MAX_PAGES) {
-      const url = `${RR_BASE_URL}/api/v1/service-requests/?page=${page}&page_size=${PAGE_SIZE}&ordering=-created`;
+      const url = `${apiBaseUrl}/api/v1/service-requests/?page=${page}&page_size=${PAGE_SIZE}&ordering=-created`;
       const rrRes = await fetch(url, {
         headers: {
-          'Authorization': `Token ${process.env.RR_TOKEN}`,
+          'Authorization': `Token ${apiToken}`,
           'Accept': 'application/json',
           'Cache-Control': 'no-store',
         }
@@ -588,11 +658,11 @@ app.post('/api/db/sync', async (req, res) => {
         if (tracking.startsWith('1Z')) carrier = 'UPS';
         else if (/^[0-9]{12,22}$/.test(tracking) && !tracking.startsWith('9')) carrier = 'FedEx';
 
-        // Upsert into rr_cache
+        // Upsert into rr_cache with merchant_id
         try {
           await pool.query(
-            `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+            `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at, merchant_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11)
              ON CONFLICT (order_number) DO UPDATE SET
                rr_name = EXCLUDED.rr_name,
                rr_id = EXCLUDED.rr_id,
@@ -603,6 +673,7 @@ app.post('/api/db/sync', async (req, res) => {
                sku_fingerprint = EXCLUDED.sku_fingerprint,
                carrier = EXCLUDED.carrier,
                rr_created_at = EXCLUDED.rr_created_at,
+               merchant_id = EXCLUDED.merchant_id,
                synced_at = NOW()`,
             [
               item.order || String(item.id),
@@ -614,7 +685,8 @@ app.post('/api/db/sync', async (req, res) => {
               JSON.stringify(lineItems),
               skuFingerprint,
               carrier,
-              item.created
+              item.created,
+              resolvedMerchantId
             ]
           );
           recordsAdded++;
@@ -628,29 +700,30 @@ app.post('/api/db/sync', async (req, res) => {
       page++;
     }
 
-    // Update checkpoint
+    // Update checkpoint with merchant_id
     await pool.query(
-      `INSERT INTO sync_checkpoints (source, last_synced_at, last_sync_run_at, pages_fetched, records_added, status)
-       VALUES ('return_rabbit', $1, NOW(), $2, $3, 'success')`,
-      [newestCreatedAt.toISOString(), pagesFetched, recordsAdded]
+      `INSERT INTO sync_checkpoints (source, last_synced_at, last_sync_run_at, pages_fetched, records_added, status, merchant_id)
+       VALUES ('return_rabbit', $1, NOW(), $2, $3, 'success', $4)`,
+      [newestCreatedAt.toISOString(), pagesFetched, recordsAdded, resolvedMerchantId]
     );
 
-    console.log(`[Sync] Complete. Pages: ${pagesFetched}, Records added/updated: ${recordsAdded}`);
+    console.log(`[Sync] Complete for merchant ${resolvedMerchantId}. Pages: ${pagesFetched}, Records added/updated: ${recordsAdded}`);
     res.json({ 
       success: true, 
+      merchant_id: resolvedMerchantId,
       pages_fetched: pagesFetched, 
       records_added: recordsAdded,
       last_synced_at: newestCreatedAt.toISOString()
     });
 
   } catch (err) {
-    // Log failed sync
+    // Log failed sync with merchant_id
     await pool.query(
-      `INSERT INTO sync_checkpoints (source, last_sync_run_at, status, error_message)
-       VALUES ('return_rabbit', NOW(), 'failed', $1)`,
-      [err.message]
+      `INSERT INTO sync_checkpoints (source, last_sync_run_at, status, error_message, merchant_id)
+       VALUES ('return_rabbit', NOW(), 'failed', $1, $2)`,
+      [err.message, resolvedMerchantId]
     ).catch(() => {});
-    console.error('[Sync Error]', err.message);
+    console.error(`[Sync Error] merchant ${resolvedMerchantId}:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -763,12 +836,17 @@ app.put('/api/db/flags/:id', async (req, res) => {
 });
 
 // ── RETURN LINE FLAGS: Get flags for Returns Report ───────────────────
+// ?merchant_id=X filters to a specific merchant via returns join
 app.get('/api/db/flags', async (req, res) => {
-  const { condition, date_from, date_to, limit = 500, offset = 0 } = req.query;
+  const { condition, date_from, date_to, merchant_id, limit = 500, offset = 0 } = req.query;
   try {
     let where = ['1=1'];
     let params = [];
     let i = 1;
+    const needsReturnJoin = !!merchant_id;
+    if (merchant_id) {
+      where.push(`r.merchant_id = $${i}`); params.push(parseInt(merchant_id)); i++;
+    }
     if (condition && condition !== 'all') {
       where.push(`f.condition = $${i}`); params.push(condition); i++;
     }
@@ -784,6 +862,7 @@ app.get('/api/db/flags', async (req, res) => {
         f.created_at,
         w.initials as worker_initials, w.full_name as worker_name
        FROM return_line_flags f
+       ${needsReturnJoin ? 'JOIN returns r ON f.return_id = r.id' : ''}
        LEFT JOIN workers w ON f.worker_id = w.id
        WHERE ${where.join(' AND ')}
        ORDER BY f.created_at DESC
@@ -799,10 +878,12 @@ app.get('/api/db/flags', async (req, res) => {
 
 // ── MANUAL RETURN REFERENCE ──────────────────────────────────────────
 app.post('/api/db/manual-ref', async (req, res) => {
-  const { tracking_number, customer_name, order_number, reason, line_items } = req.body;
+  const { tracking_number, customer_name, order_number, reason, line_items, merchant_id } = req.body;
+  const resolvedMerchantId = merchant_id || 1;
   try {
     const result = await pool.query(
-      "SELECT COUNT(*) as cnt FROM returns WHERE is_manual = true"
+      "SELECT COUNT(*) as cnt FROM returns WHERE is_manual = true AND merchant_id = $1",
+      [resolvedMerchantId]
     );
     const num = parseInt(result.rows[0].cnt) + 1;
     const ref = 'MAN-' + String(num).padStart(3, '0');
@@ -812,15 +893,16 @@ app.post('/api/db/manual-ref', async (req, res) => {
     // Save to rr_cache so all workstations can see it
     await pool.query(
       `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name,
-        line_items, sku_fingerprint, carrier, rr_created_at, synced_at, is_manual)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'USPS',NOW(),NOW(),true)
+        line_items, sku_fingerprint, carrier, rr_created_at, synced_at, is_manual, merchant_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'USPS',NOW(),NOW(),true,$8)
        ON CONFLICT (order_number) DO UPDATE SET
          tracking_number=EXCLUDED.tracking_number,
          customer_name=EXCLUDED.customer_name,
          line_items=EXCLUDED.line_items,
+         merchant_id=EXCLUDED.merchant_id,
          synced_at=NOW()`,
       [orderNum, ref, ref, tracking_number||'', customer_name||'',
-       JSON.stringify(line_items||[]), skuFp]
+       JSON.stringify(line_items||[]), skuFp, resolvedMerchantId]
     );
 
     res.json({ success: true, ref, order_number: orderNum });
@@ -831,8 +913,22 @@ app.post('/api/db/manual-ref', async (req, res) => {
 });
 
 // ── RR STATS API ─────────────────────────────────────────────────────
+// ?merchant_id=X filters to a specific merchant
 app.get('/api/db/rr-stats', async (req, res) => {
+  const { merchant_id } = req.query;
   try {
+    let cacheWhere = '';
+    let returnsWhere = '';
+    let todayWhere = 'received_at >= CURRENT_DATE';
+    const params = [];
+
+    if (merchant_id) {
+      params.push(parseInt(merchant_id));
+      cacheWhere = `AND c.merchant_id = $1`;
+      returnsWhere = `AND merchant_id = $1`;
+      todayWhere += ` AND merchant_id = $1`;
+    }
+
     // Count by status from line_items JSONB
     const result = await pool.query(`
       SELECT
@@ -844,15 +940,16 @@ app.get('/api/db/rr-stats', async (req, res) => {
         ) THEN 1 END) as open_rmas,
         COUNT(CASE WHEN line_items->0->>'status' = 'Added to processing queue' THEN 1 END) as in_transit,
         COUNT(CASE WHEN line_items->0->>'status' IN ('Refund Success','Exchange Success') THEN 1 END) as completed
-      FROM rr_cache
-      WHERE order_number NOT IN (SELECT DISTINCT order_number FROM returns)
-    `);
+      FROM rr_cache c
+      WHERE order_number NOT IN (SELECT DISTINCT order_number FROM returns WHERE 1=1 ${returnsWhere})
+      ${cacheWhere}
+    `, params);
     // Arrived today = processed today
     const todayRes = await pool.query(`
       SELECT COUNT(*) as arrived_today
       FROM returns
-      WHERE received_at >= CURRENT_DATE
-    `);
+      WHERE ${todayWhere}
+    `, merchant_id ? [parseInt(merchant_id)] : []);
     res.json({
       success: true,
       open_rmas:     parseInt(result.rows[0].open_rmas||0),
@@ -864,8 +961,20 @@ app.get('/api/db/rr-stats', async (req, res) => {
 });
 
 // ── DAYS HELD API ─────────────────────────────────────────────────────
+// ?merchant_id=X filters to a specific merchant
 app.get('/api/db/days-held', async (req, res) => {
+  const { merchant_id } = req.query;
   try {
+    let cacheWhere = '';
+    let returnsWhere = '';
+    const params = [];
+
+    if (merchant_id) {
+      params.push(parseInt(merchant_id));
+      cacheWhere = `AND c.merchant_id = $1`;
+      returnsWhere = `AND merchant_id = $1`;
+    }
+
     const result = await pool.query(`
       SELECT
         c.order_number,
@@ -873,6 +982,7 @@ app.get('/api/db/days-held', async (req, res) => {
         c.rr_created_at,
         c.line_items,
         c.carrier,
+        c.merchant_id,
         EXTRACT(DAY FROM NOW() - c.rr_created_at)::int as days_held,
         CASE
           WHEN EXTRACT(DAY FROM NOW() - c.rr_created_at) <= 30 THEN 'green'
@@ -880,10 +990,11 @@ app.get('/api/db/days-held', async (req, res) => {
           ELSE 'red'
         END as status
       FROM rr_cache c
-      WHERE c.order_number NOT IN (SELECT DISTINCT order_number FROM returns)
+      WHERE c.order_number NOT IN (SELECT DISTINCT order_number FROM returns WHERE 1=1 ${returnsWhere})
+      ${cacheWhere}
       ORDER BY days_held DESC
       LIMIT 500
-    `);
+    `, params);
     // Summary stats
     const rows = result.rows;
     const summary = {
@@ -898,8 +1009,21 @@ app.get('/api/db/days-held', async (req, res) => {
 });
 
 // ── CLIENT RATES API ─────────────────────────────────────────────────
+// ?merchant_id=X reads from merchants table; without it, legacy client_rates
 app.get('/api/db/rates', async (req, res) => {
+  const { merchant_id } = req.query;
   try {
+    if (merchant_id) {
+      const result = await pool.query(
+        'SELECT good_rate, damaged_rate, updated_at FROM merchants WHERE id = $1',
+        [parseInt(merchant_id)]
+      );
+      if (result.rows.length === 0) {
+        return res.json({ success: true, good_rate: 4.00, damaged_rate: 4.00 });
+      }
+      return res.json({ success: true, merchant_id: parseInt(merchant_id), ...result.rows[0] });
+    }
+    // Legacy fallback
     const result = await pool.query(
       "SELECT good_rate, damaged_rate, updated_at FROM client_rates WHERE client='paragonfitwear' ORDER BY id DESC LIMIT 1"
     );
@@ -911,16 +1035,33 @@ app.get('/api/db/rates', async (req, res) => {
 });
 
 app.put('/api/db/rates', async (req, res) => {
-  const { good_rate, damaged_rate, worker_id } = req.body;
+  const { good_rate, damaged_rate, worker_id, merchant_id } = req.body;
   if(!good_rate || isNaN(good_rate)){
     return res.status(400).json({ error: 'good_rate required' });
   }
+  const parsedGood = parseFloat(good_rate);
+  const parsedDamaged = parseFloat(damaged_rate || good_rate);
   try {
-    await pool.query(
-      "UPDATE client_rates SET good_rate=$1, damaged_rate=$2, updated_by=$3, updated_at=NOW() WHERE client='paragonfitwear'",
-      [parseFloat(good_rate), parseFloat(damaged_rate||good_rate), worker_id||null]
-    );
-    res.json({ success: true, good_rate: parseFloat(good_rate), damaged_rate: parseFloat(damaged_rate||good_rate) });
+    if (merchant_id) {
+      // Write to merchants table
+      await pool.query(
+        'UPDATE merchants SET good_rate = $1, damaged_rate = $2, updated_at = NOW() WHERE id = $3',
+        [parsedGood, parsedDamaged, parseInt(merchant_id)]
+      );
+      // Also sync to client_rates for backward compatibility
+      await pool.query(
+        `UPDATE client_rates SET good_rate = $1, damaged_rate = $2, updated_by = $3, updated_at = NOW()
+         WHERE merchant_id = $4`,
+        [parsedGood, parsedDamaged, worker_id || null, parseInt(merchant_id)]
+      );
+    } else {
+      // Legacy path
+      await pool.query(
+        "UPDATE client_rates SET good_rate=$1, damaged_rate=$2, updated_by=$3, updated_at=NOW() WHERE client='paragonfitwear'",
+        [parsedGood, parsedDamaged, worker_id||null]
+      );
+    }
+    res.json({ success: true, good_rate: parsedGood, damaged_rate: parsedDamaged });
   } catch(err){ res.status(500).json({ error: err.message }); }
 });
 
@@ -1689,15 +1830,145 @@ app.get('/api/db/merchants/:id/productivity', async (req, res) => {
   }
 });
 
+// ── SYNC TRIGGER: Manual sync for a specific merchant (POST) ─────────
+// Kept for backward compatibility — the GET version below also works
+app.post('/api/db/sync/:merchantId/trigger', async (req, res) => {
+  const mid = parseInt(req.params.merchantId);
+  if (!mid) return res.status(400).json({ error: 'Invalid merchant ID' });
+  try {
+    const mRes = await pool.query(
+      'SELECT id, name, platform, api_key, api_url FROM merchants WHERE id = $1 AND active = true',
+      [mid]
+    );
+    if (mRes.rows.length === 0) return res.status(404).json({ error: 'Merchant not found or inactive' });
+    const merchant = mRes.rows[0];
+    if (!merchant.api_key && !process.env.RR_TOKEN) {
+      return res.status(400).json({ error: `No API key for ${merchant.name}` });
+    }
+    res.json({ success: true, message: `Sync triggered for ${merchant.name}` });
+    syncMerchant(merchant).catch(err => {
+      console.error(`[Manual Sync POST] merchant ${mid} failed:`, err.message);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── CATCH-ALL — serve dashboard for any unknown route ─
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ── START ─────────────────────────────────────────────
+// ── MANUAL SYNC TRIGGER PER MERCHANT ─────────────────
+app.get('/api/db/sync/:merchantId/trigger', async (req, res) => {
+  const { merchantId } = req.params;
+  try {
+    const merchantRes = await pool.query(
+      'SELECT id, name, api_key, api_url, platform FROM merchants WHERE id = $1 AND active = true',
+      [merchantId]
+    );
+    if (merchantRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Merchant not found or inactive' });
+    }
+    // Trigger sync in background, respond immediately
+    res.json({ success: true, message: `Sync triggered for merchant ${merchantRes.rows[0].name}` });
+    syncMerchant(merchantRes.rows[0]).catch(err => {
+      console.error(`[Manual Sync] merchant ${merchantId} failed:`, err.message);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── DAILY SYNC SCHEDULER ─────────────────────────────
-// Runs incremental RR sync every day at 6:00 AM UTC
-// No Railway cron needed — runs inside the server process
+// Runs incremental sync for ALL active merchants at 6:00 AM UTC
+// Each merchant synced independently with its own API key
+// Error in one merchant does not block others
+async function syncMerchant(merchant) {
+  const CUTOFF = '2026-01-01T00:00:00Z';
+  const MAX_PAGES = 400;
+  const apiToken = merchant.api_key || process.env.RR_TOKEN;
+  const apiBaseUrl = merchant.api_url || process.env.RR_BASE_URL || 'https://api.returnrabbit.app';
+
+  if (!apiToken) {
+    throw new Error(`No API token for merchant ${merchant.id} (${merchant.name})`);
+  }
+
+  console.log(`[Sync] Starting sync for merchant ${merchant.id} (${merchant.name})...`);
+
+  const checkpointRes = await pool.query(
+    `SELECT last_synced_at FROM sync_checkpoints
+     WHERE source = 'return_rabbit' AND merchant_id = $1
+     ORDER BY id DESC LIMIT 1`,
+    [merchant.id]
+  );
+  const lastSyncedAt = checkpointRes.rows.length > 0
+    ? new Date(checkpointRes.rows[0].last_synced_at)
+    : new Date(CUTOFF);
+
+  let page = 1, recordsAdded = 0, pagesFetched = 0, done = false;
+  let newestCreatedAt = lastSyncedAt;
+
+  while (!done && page <= MAX_PAGES) {
+    const url = `${apiBaseUrl}/api/v1/service-requests/?page=${page}&page_size=50&ordering=-created`;
+    const rrRes = await fetch(url, {
+      headers: { 'Authorization': `Token ${apiToken}`, 'Accept': 'application/json', 'Cache-Control': 'no-store' }
+    });
+    if (!rrRes.ok) throw new Error(`RR API error: ${rrRes.status}`);
+    const data = await rrRes.json();
+    pagesFetched++;
+    const results = data.results || [];
+    if (results.length === 0) break;
+
+    for (const item of results) {
+      const rrCreatedAt = new Date(item.created);
+      if (rrCreatedAt <= lastSyncedAt) { done = true; break; }
+      if (rrCreatedAt < new Date(CUTOFF)) { done = true; break; }
+      if (rrCreatedAt > newestCreatedAt) newestCreatedAt = rrCreatedAt;
+
+      const lineItems = item.line_items || [];
+      const skus = lineItems.map(li => li.sku).filter(Boolean).sort();
+      const skuFingerprint = skus.join('|');
+      const rawTracking = item.fulfillment_details?.tracking_number || '';
+      const trackingMatch = rawTracking.match(/((?:9[0-9]{3}|82)[0-9]{17,19})/);
+      const tracking = trackingMatch ? trackingMatch[1] : rawTracking;
+      const zipMatch = rawTracking.match(/^420(\d{5})/);
+      const customerZip = zipMatch ? zipMatch[1] : null;
+      let carrier = 'USPS';
+      if (tracking.startsWith('1Z')) carrier = 'UPS';
+      else if (/^[0-9]{12,22}$/.test(tracking) && !tracking.startsWith('9')) carrier = 'FedEx';
+
+      try {
+        await pool.query(
+          `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at, merchant_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),$11)
+           ON CONFLICT (order_number) DO UPDATE SET
+             rr_name=EXCLUDED.rr_name, rr_id=EXCLUDED.rr_id,
+             tracking_number=EXCLUDED.tracking_number, customer_name=EXCLUDED.customer_name,
+             customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
+             sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
+             rr_created_at=EXCLUDED.rr_created_at, merchant_id=EXCLUDED.merchant_id, synced_at=NOW()`,
+          [item.order || String(item.id), item.name || null, String(item.id),
+           tracking, item.shipping_information?.name || '', customerZip,
+           JSON.stringify(lineItems), skuFingerprint, carrier, item.created, merchant.id]
+        );
+        recordsAdded++;
+      } catch(e) { console.error(`[Sync Insert] merchant ${merchant.id}:`, e.message); }
+    }
+    if (!data.next) break;
+    page++;
+  }
+
+  await pool.query(
+    `INSERT INTO sync_checkpoints (source, last_synced_at, last_sync_run_at, pages_fetched, records_added, status, merchant_id)
+     VALUES ('return_rabbit', $1, NOW(), $2, $3, 'success', $4)`,
+    [newestCreatedAt.toISOString(), pagesFetched, recordsAdded, merchant.id]
+  );
+  console.log(`[Sync] merchant ${merchant.id} (${merchant.name}) complete. Pages: ${pagesFetched}, Records: ${recordsAdded}`);
+  return { pages_fetched: pagesFetched, records_added: recordsAdded };
+}
+
 function scheduleDailySync() {
   const now = new Date();
   const next = new Date();
@@ -1707,76 +1978,32 @@ function scheduleDailySync() {
   const hoursUntil = (msUntilNext / 1000 / 60 / 60).toFixed(1);
   console.log(`[Sync Scheduler] Next sync in ${hoursUntil} hours at ${next.toUTCString()}`);
   setTimeout(async () => {
-    console.log('[Sync Scheduler] Running daily incremental sync...');
+    console.log('[Sync Scheduler] Running daily sync for all merchants...');
     try {
-      const CUTOFF = '2026-01-01T00:00:00Z';
-      const MAX_PAGES = 400;
-      const RR_BASE_URL = process.env.RR_BASE_URL || 'https://api.returnrabbit.app';
-      if (!process.env.RR_TOKEN) throw new Error('RR_TOKEN not configured');
-      const checkpointRes = await pool.query(
-        "SELECT last_synced_at FROM sync_checkpoints WHERE source = 'return_rabbit' ORDER BY id DESC LIMIT 1"
+      // Get all active merchants with sync enabled
+      const merchantsRes = await pool.query(
+        'SELECT id, name, api_key, api_url, platform FROM merchants WHERE active = true AND sync_enabled = true ORDER BY id'
       );
-      const lastSyncedAt = checkpointRes.rows.length > 0
-        ? new Date(checkpointRes.rows[0].last_synced_at)
-        : new Date(CUTOFF);
-      let page = 1, recordsAdded = 0, pagesFetched = 0, done = false;
-      let newestCreatedAt = lastSyncedAt;
-      while (!done && page <= MAX_PAGES) {
-        const url = `${RR_BASE_URL}/api/v1/service-requests/?page=${page}&page_size=50&ordering=-created`;
-        const rrRes = await fetch(url, {
-          headers: { 'Authorization': `Token ${process.env.RR_TOKEN}`, 'Accept': 'application/json', 'Cache-Control': 'no-store' }
-        });
-        if (!rrRes.ok) throw new Error(`RR API error: ${rrRes.status}`);
-        const data = await rrRes.json();
-        pagesFetched++;
-        const results = data.results || [];
-        if (results.length === 0) break;
-        for (const item of results) {
-          const rrCreatedAt = new Date(item.created);
-          if (rrCreatedAt <= lastSyncedAt) { done = true; break; }
-          if (rrCreatedAt < new Date(CUTOFF)) { done = true; break; }
-          if (rrCreatedAt > newestCreatedAt) newestCreatedAt = rrCreatedAt;
-          const lineItems = item.line_items || [];
-          const skus = lineItems.map(li => li.sku).filter(Boolean).sort();
-          const skuFingerprint = skus.join('|');
-          const rawTracking = item.fulfillment_details?.tracking_number || '';
-          const trackingMatch = rawTracking.match(/((?:9[0-9]{3}|82)[0-9]{17,19})/);
-          const tracking = trackingMatch ? trackingMatch[1] : rawTracking;
-          const zipMatch = rawTracking.match(/^420(\d{5})/);
-          const customerZip = zipMatch ? zipMatch[1] : null;
-          let carrier = 'USPS';
-          if (tracking.startsWith('1Z')) carrier = 'UPS';
-          try {
-            await pool.query(
-              `INSERT INTO rr_cache (order_number, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
-               ON CONFLICT (order_number) DO UPDATE SET
-                 tracking_number=EXCLUDED.tracking_number, customer_name=EXCLUDED.customer_name,
-                 customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
-                 sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
-                 rr_created_at=EXCLUDED.rr_created_at, synced_at=NOW()`,
-              [item.order || String(item.id), tracking,
-               item.shipping_information?.name || '', customerZip,
-               JSON.stringify(lineItems), skuFingerprint, carrier, item.created]
-            );
-            recordsAdded++;
-          } catch(e) { console.error('[Daily Sync Insert]', e.message); }
-        }
-        if (!data.next) break;
-        page++;
+      const merchants = merchantsRes.rows;
+      if (merchants.length === 0) {
+        console.log('[Sync Scheduler] No active merchants with sync enabled.');
       }
-      await pool.query(
-        `INSERT INTO sync_checkpoints (source, last_synced_at, last_sync_run_at, pages_fetched, records_added, status)
-         VALUES ('return_rabbit', $1, NOW(), $2, $3, 'success')`,
-        [newestCreatedAt.toISOString(), pagesFetched, recordsAdded]
-      );
-      console.log(`[Daily Sync] Complete. Pages: ${pagesFetched}, Records: ${recordsAdded}`);
+      for (const merchant of merchants) {
+        try {
+          await syncMerchant(merchant);
+        } catch (e) {
+          // Error isolation: log and continue to next merchant
+          console.error(`[Sync Scheduler] merchant ${merchant.id} (${merchant.name}) failed:`, e.message);
+          await pool.query(
+            `INSERT INTO sync_checkpoints (source, last_sync_run_at, status, error_message, merchant_id)
+             VALUES ('return_rabbit', NOW(), 'failed', $1, $2)`,
+            [e.message, merchant.id]
+          ).catch(() => {});
+        }
+      }
+      console.log(`[Sync Scheduler] All merchants processed.`);
     } catch(e) {
-      console.error('[Daily Sync Error]', e.message);
-      await pool.query(
-        `INSERT INTO sync_checkpoints (source, last_sync_run_at, status, error_message)
-         VALUES ('return_rabbit', NOW(), 'failed', $1)`, [e.message]
-      ).catch(() => {});
+      console.error('[Sync Scheduler] Fatal error:', e.message);
     }
     scheduleDailySync(); // schedule next day
   }, msUntilNext);
