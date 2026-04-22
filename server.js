@@ -545,184 +545,33 @@ app.get('/api/db/reports/billing', async (req, res) => {
 // Pulls only records newer than MAX(rr_created_at) in DB
 // Cutoff: Jan 1 2026 — never pulls older than that
 // ?merchant_id=X syncs a specific merchant using their API key
+// Uses the adapter pattern — calls syncReturnRabbit or syncLoop based on merchant.platform
 app.post('/api/db/sync', async (req, res) => {
   const merchantId = req.body.merchant_id || req.query.merchant_id;
-
-  // Resolve API key: merchant-specific or fallback to env
-  let apiToken = process.env.RR_TOKEN;
-  let apiBaseUrl = process.env.RR_BASE_URL || 'https://api.returnrabbit.app';
-  let resolvedMerchantId = merchantId ? parseInt(merchantId) : 1;
-
-  if (merchantId) {
-    try {
-      const merchantRes = await pool.query(
-        'SELECT api_key, api_url, platform FROM merchants WHERE id = $1 AND active = true',
-        [merchantId]
-      );
-      if (merchantRes.rows.length === 0) {
-        return res.status(404).json({ error: 'Merchant not found or inactive' });
-      }
-      const merchant = merchantRes.rows[0];
-      if (merchant.api_key) apiToken = merchant.api_key;
-      if (merchant.api_url) apiBaseUrl = merchant.api_url;
-    } catch (err) {
-      return res.status(500).json({ error: 'Failed to load merchant: ' + err.message });
-    }
-  }
-
-  if (!apiToken) {
-    return res.status(400).json({ error: 'No API token configured (check merchant api_key or RR_TOKEN env)' });
-  }
-
-  const CUTOFF = '2026-01-01T00:00:00Z';
-  const MAX_PAGES = 400;
-  const PAGE_SIZE = 50;
+  const resolvedMerchantId = merchantId ? parseInt(merchantId) : 1;
 
   try {
-    // Get last synced timestamp for this merchant
-    const checkpointRes = await pool.query(
-      `SELECT last_synced_at FROM sync_checkpoints
-       WHERE source = 'return_rabbit' AND (merchant_id = $1 OR ($1 IS NULL AND merchant_id IS NULL))
-       ORDER BY id DESC LIMIT 1`,
+    // Load merchant record
+    const merchantRes = await pool.query(
+      'SELECT id, name, api_key, api_url, platform FROM merchants WHERE id = $1 AND active = true',
       [resolvedMerchantId]
     );
-    const lastSyncedAt = checkpointRes.rows.length > 0
-      ? new Date(checkpointRes.rows[0].last_synced_at)
-      : new Date(CUTOFF);
-
-    const isInitialSync = checkpointRes.rows.length === 0;
-    console.log(`[Sync] Starting ${isInitialSync ? 'INITIAL' : 'incremental'} sync for merchant ${resolvedMerchantId}. Last synced: ${lastSyncedAt.toISOString()}`);
-
-    let page = 1;
-    let recordsAdded = 0;
-    let pagesFetched = 0;
-    let done = false;
-    let newestCreatedAt = lastSyncedAt;
-
-    while (!done && page <= MAX_PAGES) {
-      const url = `${apiBaseUrl}/api/v1/service-requests/?page=${page}&page_size=${PAGE_SIZE}&ordering=-created`;
-      const rrRes = await fetch(url, {
-        headers: {
-          'Authorization': `Token ${apiToken}`,
-          'Accept': 'application/json',
-          'Cache-Control': 'no-store',
-        }
-      });
-
-      if (!rrRes.ok) {
-        throw new Error(`RR API error: ${rrRes.status}`);
-      }
-
-      const data = await rrRes.json();
-      pagesFetched++;
-
-      const results = data.results || [];
-      if (results.length === 0) break;
-
-      for (const item of results) {
-        const rrCreatedAt = new Date(item.created);
-
-        // Stop if we've reached records we already have
-        if (rrCreatedAt <= lastSyncedAt && !isInitialSync) {
-          done = true;
-          break;
-        }
-
-        // Stop if older than cutoff
-        if (rrCreatedAt < new Date(CUTOFF)) {
-          done = true;
-          break;
-        }
-
-        // Track newest record
-        if (rrCreatedAt > newestCreatedAt) {
-          newestCreatedAt = rrCreatedAt;
-        }
-
-        // Build SKU fingerprint
-        const lineItems = item.line_items || [];
-        const skus = lineItems.map(li => li.sku).filter(Boolean).sort();
-        const skuFingerprint = skus.join('|');
-
-        // Extract tracking number (strip USPS prefix)
-        const rawTracking = item.fulfillment_details?.tracking_number || '';
-        const trackingMatch = rawTracking.match(/((?:9[0-9]{3}|82)[0-9]{17,19})/);
-        const tracking = trackingMatch ? trackingMatch[1] : rawTracking;
-
-        // Extract ZIP from USPS prefix (420XXXXX...)
-        const zipMatch = rawTracking.match(/^420(\d{5})/);
-        const customerZip = zipMatch ? zipMatch[1] : null;
-
-        // Detect carrier from tracking prefix
-        let carrier = 'USPS';
-        if (tracking.startsWith('1Z')) carrier = 'UPS';
-        else if (/^[0-9]{12,22}$/.test(tracking) && !tracking.startsWith('9')) carrier = 'FedEx';
-
-        // Upsert into rr_cache with merchant_id
-        try {
-          await pool.query(
-            `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at, merchant_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11)
-             ON CONFLICT (order_number) DO UPDATE SET
-               rr_name = EXCLUDED.rr_name,
-               rr_id = EXCLUDED.rr_id,
-               tracking_number = EXCLUDED.tracking_number,
-               customer_name = EXCLUDED.customer_name,
-               customer_zip = EXCLUDED.customer_zip,
-               line_items = EXCLUDED.line_items,
-               sku_fingerprint = EXCLUDED.sku_fingerprint,
-               carrier = EXCLUDED.carrier,
-               rr_created_at = EXCLUDED.rr_created_at,
-               merchant_id = EXCLUDED.merchant_id,
-               synced_at = NOW()`,
-            [
-              item.order || String(item.id),
-              item.name || null,
-              String(item.id),
-              tracking,
-              item.shipping_information?.name || '',
-              customerZip,
-              JSON.stringify(lineItems),
-              skuFingerprint,
-              carrier,
-              item.created,
-              resolvedMerchantId
-            ]
-          );
-          recordsAdded++;
-        } catch (insertErr) {
-          console.error('[Sync Insert Error]', insertErr.message);
-        }
-      }
-
-      // Check if there are more pages
-      if (!data.next) break;
-      page++;
+    if (merchantRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Merchant not found or inactive' });
     }
+    const merchant = merchantRes.rows[0];
 
-    // Update checkpoint with merchant_id
-    await pool.query(
-      `INSERT INTO sync_checkpoints (source, last_synced_at, last_sync_run_at, pages_fetched, records_added, status, merchant_id)
-       VALUES ('return_rabbit', $1, NOW(), $2, $3, 'success', $4)`,
-      [newestCreatedAt.toISOString(), pagesFetched, recordsAdded, resolvedMerchantId]
-    );
+    // Use the shared adapter router
+    const result = await syncMerchant(merchant);
 
-    console.log(`[Sync] Complete for merchant ${resolvedMerchantId}. Pages: ${pagesFetched}, Records added/updated: ${recordsAdded}`);
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       merchant_id: resolvedMerchantId,
-      pages_fetched: pagesFetched, 
-      records_added: recordsAdded,
-      last_synced_at: newestCreatedAt.toISOString()
+      platform: merchant.platform,
+      pages_fetched: result.pages_fetched,
+      records_added: result.records_added,
     });
-
   } catch (err) {
-    // Log failed sync with merchant_id
-    await pool.query(
-      `INSERT INTO sync_checkpoints (source, last_sync_run_at, status, error_message, merchant_id)
-       VALUES ('return_rabbit', NOW(), 'failed', $1, $2)`,
-      [err.message, resolvedMerchantId]
-    ).catch(() => {});
     console.error(`[Sync Error] merchant ${resolvedMerchantId}:`, err.message);
     res.status(500).json({ error: err.message });
   }
@@ -1860,32 +1709,44 @@ app.get('*', (req, res) => {
 });
 
 // ── START ─────────────────────────────────────────────
-// ── MANUAL SYNC TRIGGER PER MERCHANT ─────────────────
-app.get('/api/db/sync/:merchantId/trigger', async (req, res) => {
-  const { merchantId } = req.params;
-  try {
-    const merchantRes = await pool.query(
-      'SELECT id, name, api_key, api_url, platform FROM merchants WHERE id = $1 AND active = true',
-      [merchantId]
-    );
-    if (merchantRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Merchant not found or inactive' });
-    }
-    // Trigger sync in background, respond immediately
-    res.json({ success: true, message: `Sync triggered for merchant ${merchantRes.rows[0].name}` });
-    syncMerchant(merchantRes.rows[0]).catch(err => {
-      console.error(`[Manual Sync] merchant ${merchantId} failed:`, err.message);
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ── SYNC ADAPTERS — Platform-specific sync logic ─────────────────────
+// Each adapter fetches returns from a platform API and upserts into rr_cache.
+// Adding a new platform = adding one new function + one case in syncMerchant().
 
-// ── DAILY SYNC SCHEDULER ─────────────────────────────
-// Runs incremental sync for ALL active merchants at 6:00 AM UTC
-// Each merchant synced independently with its own API key
-// Error in one merchant does not block others
-async function syncMerchant(merchant) {
+// Shared: parse tracking number from raw value
+function extractTracking(rawTracking) {
+  const trackingMatch = rawTracking.match(/((?:9[0-9]{3}|82)[0-9]{17,19})/);
+  return trackingMatch ? trackingMatch[1] : rawTracking;
+}
+
+// Shared: detect carrier from tracking number
+function detectCarrier(tracking) {
+  if (tracking.startsWith('1Z')) return 'UPS';
+  if (/^[0-9]{12,22}$/.test(tracking) && !tracking.startsWith('9')) return 'FedEx';
+  return 'USPS';
+}
+
+// Shared: upsert a normalized record into rr_cache
+async function upsertCacheRecord(rec, merchantId) {
+  await pool.query(
+    `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at, merchant_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),$11)
+     ON CONFLICT (order_number) DO UPDATE SET
+       rr_name=EXCLUDED.rr_name, rr_id=EXCLUDED.rr_id,
+       tracking_number=EXCLUDED.tracking_number, customer_name=EXCLUDED.customer_name,
+       customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
+       sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
+       rr_created_at=EXCLUDED.rr_created_at, merchant_id=EXCLUDED.merchant_id, synced_at=NOW()`,
+    [rec.order_number, rec.rr_name, rec.rr_id, rec.tracking_number,
+     rec.customer_name, rec.customer_zip, JSON.stringify(rec.line_items),
+     rec.sku_fingerprint, rec.carrier, rec.created_at, merchantId]
+  );
+}
+
+// ── ADAPTER: Return Rabbit ──────────────────────────────────────────
+// Auth: Authorization: Token <api_key>
+// Endpoint: /api/v1/service-requests/?page=N&page_size=50&ordering=-created
+async function syncReturnRabbit(merchant) {
   const CUTOFF = '2026-01-01T00:00:00Z';
   const MAX_PAGES = 400;
   const apiToken = merchant.api_key || process.env.RR_TOKEN;
@@ -1894,8 +1755,6 @@ async function syncMerchant(merchant) {
   if (!apiToken) {
     throw new Error(`No API token for merchant ${merchant.id} (${merchant.name})`);
   }
-
-  console.log(`[Sync] Starting sync for merchant ${merchant.id} (${merchant.name})...`);
 
   const checkpointRes = await pool.query(
     `SELECT last_synced_at FROM sync_checkpoints
@@ -1929,32 +1788,25 @@ async function syncMerchant(merchant) {
 
       const lineItems = item.line_items || [];
       const skus = lineItems.map(li => li.sku).filter(Boolean).sort();
-      const skuFingerprint = skus.join('|');
       const rawTracking = item.fulfillment_details?.tracking_number || '';
-      const trackingMatch = rawTracking.match(/((?:9[0-9]{3}|82)[0-9]{17,19})/);
-      const tracking = trackingMatch ? trackingMatch[1] : rawTracking;
+      const tracking = extractTracking(rawTracking);
       const zipMatch = rawTracking.match(/^420(\d{5})/);
-      const customerZip = zipMatch ? zipMatch[1] : null;
-      let carrier = 'USPS';
-      if (tracking.startsWith('1Z')) carrier = 'UPS';
-      else if (/^[0-9]{12,22}$/.test(tracking) && !tracking.startsWith('9')) carrier = 'FedEx';
 
       try {
-        await pool.query(
-          `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at, merchant_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),$11)
-           ON CONFLICT (order_number) DO UPDATE SET
-             rr_name=EXCLUDED.rr_name, rr_id=EXCLUDED.rr_id,
-             tracking_number=EXCLUDED.tracking_number, customer_name=EXCLUDED.customer_name,
-             customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
-             sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
-             rr_created_at=EXCLUDED.rr_created_at, merchant_id=EXCLUDED.merchant_id, synced_at=NOW()`,
-          [item.order || String(item.id), item.name || null, String(item.id),
-           tracking, item.shipping_information?.name || '', customerZip,
-           JSON.stringify(lineItems), skuFingerprint, carrier, item.created, merchant.id]
-        );
+        await upsertCacheRecord({
+          order_number:    item.order || String(item.id),
+          rr_name:         item.name || null,
+          rr_id:           String(item.id),
+          tracking_number: tracking,
+          customer_name:   item.shipping_information?.name || '',
+          customer_zip:    zipMatch ? zipMatch[1] : null,
+          line_items:      lineItems,
+          sku_fingerprint: skus.join('|'),
+          carrier:         detectCarrier(tracking),
+          created_at:      item.created,
+        }, merchant.id);
         recordsAdded++;
-      } catch(e) { console.error(`[Sync Insert] merchant ${merchant.id}:`, e.message); }
+      } catch(e) { console.error(`[RR Sync Insert] merchant ${merchant.id}:`, e.message); }
     }
     if (!data.next) break;
     page++;
@@ -1965,8 +1817,144 @@ async function syncMerchant(merchant) {
      VALUES ('return_rabbit', $1, NOW(), $2, $3, 'success', $4)`,
     [newestCreatedAt.toISOString(), pagesFetched, recordsAdded, merchant.id]
   );
-  console.log(`[Sync] merchant ${merchant.id} (${merchant.name}) complete. Pages: ${pagesFetched}, Records: ${recordsAdded}`);
   return { pages_fetched: pagesFetched, records_added: recordsAdded };
+}
+
+// ── ADAPTER: Loop Returns ───────────────────────────────────────────
+// Auth: X-Authorization: <api_key>  (API key auth, NOT OAuth — OAuth only needed for Labels/Webhooks)
+// Endpoint: /api/v1/warehouse/returns  (Detailed Returns List — requires 'returns' scope)
+// Docs: https://docs.loopreturns.com
+async function syncLoop(merchant) {
+  const CUTOFF = '2026-01-01T00:00:00Z';
+  const MAX_PAGES = 200;
+  const apiKey = merchant.api_key;
+  const apiBaseUrl = merchant.api_url || 'https://api.loopreturns.com';
+
+  if (!apiKey) {
+    throw new Error(`No API key for Loop merchant ${merchant.id} (${merchant.name})`);
+  }
+
+  const checkpointRes = await pool.query(
+    `SELECT last_synced_at FROM sync_checkpoints
+     WHERE source = 'loop' AND merchant_id = $1
+     ORDER BY id DESC LIMIT 1`,
+    [merchant.id]
+  );
+  const lastSyncedAt = checkpointRes.rows.length > 0
+    ? new Date(checkpointRes.rows[0].last_synced_at)
+    : new Date(CUTOFF);
+
+  let page = 1, recordsAdded = 0, pagesFetched = 0, done = false;
+  let newestCreatedAt = lastSyncedAt;
+  let cursor = null;
+
+  while (!done && page <= MAX_PAGES) {
+    // Loop API uses cursor-based pagination
+    let url = `${apiBaseUrl}/api/v1/warehouse/returns?limit=50`;
+    if (cursor) url += `&cursor=${cursor}`;
+
+    const loopRes = await fetch(url, {
+      headers: {
+        'X-Authorization': apiKey,
+        'Accept': 'application/json',
+        'Cache-Control': 'no-store'
+      }
+    });
+    if (!loopRes.ok) throw new Error(`Loop API error: ${loopRes.status}`);
+    const data = await loopRes.json();
+    pagesFetched++;
+
+    const returns = data.returns || data.data || [];
+    if (returns.length === 0) break;
+
+    for (const ret of returns) {
+      // Loop return created_at
+      const createdAt = new Date(ret.created_at || ret.created);
+      if (createdAt <= lastSyncedAt) { done = true; break; }
+      if (createdAt < new Date(CUTOFF)) { done = true; break; }
+      if (createdAt > newestCreatedAt) newestCreatedAt = createdAt;
+
+      // Map Loop line items to our normalized format
+      const loopItems = ret.line_items || ret.return_line_items || [];
+      const lineItems = loopItems.map(li => ({
+        sku:          li.sku || li.variant_sku || null,
+        product_name: li.title || li.product_title || li.name || null,
+        variant:      li.variant_title || null,
+        quantity:     parseInt(li.quantity || 1),
+        reason:       li.return_reason || li.reason || null,
+        image_url:    li.image_url || li.product_image || null,
+        status:       li.state || li.status || null,
+      }));
+
+      const skus = lineItems.map(li => li.sku).filter(Boolean).sort();
+
+      // Loop tracking: may be in label, shipment, or return-level fields
+      const rawTracking = ret.label?.tracking_number
+        || ret.shipment?.tracking_number
+        || ret.tracking_number
+        || '';
+      const tracking = extractTracking(rawTracking);
+      const zipMatch = rawTracking.match(/^420(\d{5})/);
+
+      // Customer name: Loop may nest under customer or shipping_address
+      const customerName = ret.customer?.name
+        || ret.customer?.full_name
+        || [ret.customer?.first_name, ret.customer?.last_name].filter(Boolean).join(' ')
+        || ret.shipping_address?.name
+        || '';
+
+      // Order reference: Loop uses order_name (#1234) or order_id
+      const orderNumber = ret.order_name || ret.order_number || `LOOP-${ret.id}`;
+
+      try {
+        await upsertCacheRecord({
+          order_number:    orderNumber,
+          rr_name:         ret.id ? `LOOP-${ret.id}` : null,
+          rr_id:           String(ret.id),
+          tracking_number: tracking,
+          customer_name:   customerName,
+          customer_zip:    zipMatch ? zipMatch[1] : (ret.shipping_address?.zip || null),
+          line_items:      lineItems,
+          sku_fingerprint: skus.join('|'),
+          carrier:         detectCarrier(tracking),
+          created_at:      ret.created_at || ret.created,
+        }, merchant.id);
+        recordsAdded++;
+      } catch(e) { console.error(`[Loop Sync Insert] merchant ${merchant.id}:`, e.message); }
+    }
+
+    // Loop pagination: cursor or next URL
+    cursor = data.cursor || data.next_cursor || null;
+    if (!cursor && !data.next) break;
+    page++;
+  }
+
+  await pool.query(
+    `INSERT INTO sync_checkpoints (source, last_synced_at, last_sync_run_at, pages_fetched, records_added, status, merchant_id)
+     VALUES ('loop', $1, NOW(), $2, $3, 'success', $4)`,
+    [newestCreatedAt.toISOString(), pagesFetched, recordsAdded, merchant.id]
+  );
+  return { pages_fetched: pagesFetched, records_added: recordsAdded };
+}
+
+// ── SYNC ROUTER — calls the right adapter based on merchant.platform ─
+async function syncMerchant(merchant) {
+  console.log(`[Sync] Starting sync for merchant ${merchant.id} (${merchant.name}) [${merchant.platform}]...`);
+
+  let result;
+  switch (merchant.platform) {
+    case 'return_rabbit':
+      result = await syncReturnRabbit(merchant);
+      break;
+    case 'loop':
+      result = await syncLoop(merchant);
+      break;
+    default:
+      throw new Error(`Unknown platform '${merchant.platform}' for merchant ${merchant.id}`);
+  }
+
+  console.log(`[Sync] merchant ${merchant.id} (${merchant.name}) complete. Pages: ${result.pages_fetched}, Records: ${result.records_added}`);
+  return result;
 }
 
 function scheduleDailySync() {
