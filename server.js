@@ -1703,6 +1703,108 @@ app.post('/api/db/sync/:merchantId/trigger', async (req, res) => {
   }
 });
 
+// ── AFTERSHIP RETURNS WEBHOOK ────────────────────────────────────────
+// AfterShip pushes return events here instead of us pulling.
+// Endpoint URL to give AfterShip: https://returnhub-production.up.railway.app/api/webhooks/aftership/:merchantId
+// Optional: set a webhook secret in merchants.settings.webhook_secret for verification
+app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
+  const merchantId = parseInt(req.params.merchantId);
+  if (!merchantId) return res.status(400).json({ error: 'Invalid merchant ID' });
+
+  try {
+    // Verify merchant exists and uses aftership
+    const mRes = await pool.query(
+      'SELECT id, name, platform, settings FROM merchants WHERE id = $1 AND active = true',
+      [merchantId]
+    );
+    if (mRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Merchant not found' });
+    }
+    const merchant = mRes.rows[0];
+
+    // Optional: verify webhook signature if merchant has a secret configured
+    const webhookSecret = merchant.settings?.webhook_secret;
+    if (webhookSecret) {
+      const signature = req.headers['aftership-hmac-sha256'] || req.headers['x-aftership-hmac-sha256'] || '';
+      if (signature) {
+        const expected = crypto.createHmac('sha256', webhookSecret).update(JSON.stringify(req.body)).digest('base64');
+        if (signature !== expected) {
+          console.error(`[AfterShip Webhook] Invalid signature for merchant ${merchantId}`);
+          return res.status(401).json({ error: 'Invalid webhook signature' });
+        }
+      }
+    }
+
+    // AfterShip sends the event type and return data
+    const payload = req.body;
+    const eventType = payload.event || payload.topic || 'unknown';
+    console.log(`[AfterShip Webhook] merchant ${merchantId}: event=${eventType}`);
+
+    // The return data may be at different nesting levels depending on AfterShip version
+    const ret = payload.return || payload.data?.return || payload.data || payload;
+
+    if (!ret || (!ret.order_name && !ret.order_number && !ret.id)) {
+      // Might be a verification ping or unrecognized event — acknowledge it
+      console.log(`[AfterShip Webhook] merchant ${merchantId}: no return data in event '${eventType}', acknowledging`);
+      return res.json({ success: true, message: 'Event acknowledged, no return data to process' });
+    }
+
+    // Map AfterShip return to our normalized rr_cache format
+    const lineItems = (ret.items || ret.line_items || ret.return_line_items || []).map(li => ({
+      sku:          li.sku || li.variant_sku || null,
+      product_name: li.title || li.product_title || li.product_name || li.name || null,
+      variant:      li.variant_title || li.variant || null,
+      quantity:     parseInt(li.quantity || 1),
+      reason:       li.return_reason || li.reason || null,
+      image_url:    li.image_url || li.product_image || null,
+      status:       li.status || li.state || null,
+    }));
+
+    const skus = lineItems.map(li => li.sku).filter(Boolean).sort();
+
+    // Tracking: AfterShip may nest it in different places
+    const rawTracking = ret.tracking_number
+      || ret.shipment?.tracking_number
+      || ret.label?.tracking_number
+      || ret.prepaid_label?.tracking_number
+      || '';
+    const tracking = extractTracking(rawTracking);
+    const zipMatch = rawTracking.match(/^420(\d{5})/);
+
+    // Customer name
+    const customerName = ret.customer_name
+      || ret.customer?.name
+      || ret.customer?.full_name
+      || [ret.customer?.first_name, ret.customer?.last_name].filter(Boolean).join(' ')
+      || ret.shipping_address?.name
+      || '';
+
+    // Order reference
+    const orderNumber = ret.order_name || ret.order_number || ret.shopify_order_name || `AS-${ret.id}`;
+
+    await upsertCacheRecord({
+      order_number:    orderNumber,
+      rr_name:         ret.rma_number || ret.return_number || (ret.id ? `AS-${ret.id}` : null),
+      rr_id:           String(ret.id || ret.return_id || ''),
+      tracking_number: tracking,
+      customer_name:   customerName,
+      customer_zip:    zipMatch ? zipMatch[1] : (ret.shipping_address?.zip || ret.shipping_address?.postal_code || null),
+      line_items:      lineItems,
+      sku_fingerprint: skus.join('|'),
+      carrier:         detectCarrier(tracking),
+      created_at:      ret.created_at || ret.created || new Date().toISOString(),
+    }, merchantId);
+
+    console.log(`[AfterShip Webhook] merchant ${merchantId}: upserted ${orderNumber} (${eventType})`);
+    res.json({ success: true, order_number: orderNumber, event: eventType });
+
+  } catch (err) {
+    console.error(`[AfterShip Webhook Error] merchant ${merchantId}:`, err.message);
+    // Return 200 anyway to prevent AfterShip from retrying endlessly
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // ── CATCH-ALL — serve dashboard for any unknown route ─
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1948,6 +2050,10 @@ async function syncMerchant(merchant) {
       break;
     case 'loop':
       result = await syncLoop(merchant);
+      break;
+    case 'aftership':
+      console.log(`[Sync] merchant ${merchant.id} (${merchant.name}) uses AfterShip webhooks — no pull sync needed`);
+      result = { pages_fetched: 0, records_added: 0, message: 'AfterShip uses webhooks — data pushed automatically' };
       break;
     default:
       throw new Error(`Unknown platform '${merchant.platform}' for merchant ${merchant.id}`);
