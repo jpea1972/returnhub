@@ -1705,16 +1705,16 @@ app.post('/api/db/sync/:merchantId/trigger', async (req, res) => {
 
 // ── AFTERSHIP RETURNS WEBHOOK ────────────────────────────────────────
 // AfterShip pushes return events here instead of us pulling.
-// Endpoint URL to give AfterShip: https://returnhub-production.up.railway.app/api/webhooks/aftership/:merchantId
-// Optional: set a webhook secret in merchants.settings.webhook_secret for verification
+// Saves to BOTH rr_cache (reference) AND returns + return_line_items (permanent billing record).
+// Endpoint URL: https://returnhub-production.up.railway.app/api/webhooks/aftership/:merchantId
 app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
   const merchantId = parseInt(req.params.merchantId);
   if (!merchantId) return res.status(400).json({ error: 'Invalid merchant ID' });
 
   try {
-    // Verify merchant exists and uses aftership
+    // Verify merchant exists
     const mRes = await pool.query(
-      'SELECT id, name, platform, settings FROM merchants WHERE id = $1 AND active = true',
+      'SELECT id, name, platform, settings, good_rate, damaged_rate FROM merchants WHERE id = $1 AND active = true',
       [merchantId]
     );
     if (mRes.rows.length === 0) {
@@ -1722,7 +1722,7 @@ app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
     }
     const merchant = mRes.rows[0];
 
-    // Optional: verify webhook signature if merchant has a secret configured
+    // Optional: verify webhook signature
     const webhookSecret = merchant.settings?.webhook_secret;
     if (webhookSecret) {
       const signature = req.headers['aftership-hmac-sha256'] || req.headers['x-aftership-hmac-sha256'] || '';
@@ -1735,21 +1735,19 @@ app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
       }
     }
 
-    // AfterShip sends the event type and return data
     const payload = req.body;
     const eventType = payload.event || payload.topic || 'unknown';
     console.log(`[AfterShip Webhook] merchant ${merchantId}: event=${eventType}`);
 
-    // The return data may be at different nesting levels depending on AfterShip version
+    // The return data may be at different nesting levels
     const ret = payload.return || payload.data?.return || payload.data || payload;
 
     if (!ret || (!ret.order_name && !ret.order_number && !ret.id)) {
-      // Might be a verification ping or unrecognized event — acknowledge it
       console.log(`[AfterShip Webhook] merchant ${merchantId}: no return data in event '${eventType}', acknowledging`);
       return res.json({ success: true, message: 'Event acknowledged, no return data to process' });
     }
 
-    // Map AfterShip return to our normalized rr_cache format
+    // Map line items
     const lineItems = (ret.items || ret.line_items || ret.return_line_items || []).map(li => ({
       sku:          li.sku || li.variant_sku || null,
       product_name: li.title || li.product_title || li.product_name || li.name || null,
@@ -1761,8 +1759,9 @@ app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
     }));
 
     const skus = lineItems.map(li => li.sku).filter(Boolean).sort();
+    const skuFingerprint = skus.join('|');
 
-    // Tracking: AfterShip may nest it in different places
+    // Tracking
     const rawTracking = ret.tracking_number
       || ret.shipment?.tracking_number
       || ret.label?.tracking_number
@@ -1770,6 +1769,8 @@ app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
       || '';
     const tracking = extractTracking(rawTracking);
     const zipMatch = rawTracking.match(/^420(\d{5})/);
+    const customerZip = zipMatch ? zipMatch[1] : (ret.shipping_address?.zip || ret.shipping_address?.postal_code || null);
+    const carrier = detectCarrier(tracking);
 
     // Customer name
     const customerName = ret.customer_name
@@ -1781,26 +1782,97 @@ app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
 
     // Order reference
     const orderNumber = ret.order_name || ret.order_number || ret.shopify_order_name || `AS-${ret.id}`;
+    const rmaName = ret.rma_number || ret.return_number || (ret.id ? `AS-${ret.id}` : null);
+    const rmaId = String(ret.id || ret.return_id || '');
+    const createdAt = ret.created_at || ret.created || new Date().toISOString();
 
-    await upsertCacheRecord({
-      order_number:    orderNumber,
-      rr_name:         ret.rma_number || ret.return_number || (ret.id ? `AS-${ret.id}` : null),
-      rr_id:           String(ret.id || ret.return_id || ''),
-      tracking_number: tracking,
-      customer_name:   customerName,
-      customer_zip:    zipMatch ? zipMatch[1] : (ret.shipping_address?.zip || ret.shipping_address?.postal_code || null),
-      line_items:      lineItems,
-      sku_fingerprint: skus.join('|'),
-      carrier:         detectCarrier(tracking),
-      created_at:      ret.created_at || ret.created || new Date().toISOString(),
-    }, merchantId);
+    // Billing: use merchant rates, default condition = Good
+    const billingRate = parseFloat(merchant.good_rate || 4);
+    const totalUnits = lineItems.reduce((s, li) => s + (li.quantity || 1), 0) || 1;
+    const billedAmount = billingRate * totalUnits;
 
-    console.log(`[AfterShip Webhook] merchant ${merchantId}: upserted ${orderNumber} (${eventType})`);
-    res.json({ success: true, order_number: orderNumber, event: eventType });
+    // Use a transaction to save to BOTH tables atomically
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Save to rr_cache (reference / lookup)
+      await client.query(
+        `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at, merchant_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),$11)
+         ON CONFLICT (order_number) DO UPDATE SET
+           rr_name=EXCLUDED.rr_name, rr_id=EXCLUDED.rr_id,
+           tracking_number=EXCLUDED.tracking_number, customer_name=EXCLUDED.customer_name,
+           customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
+           sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
+           rr_created_at=EXCLUDED.rr_created_at, merchant_id=EXCLUDED.merchant_id, synced_at=NOW()`,
+        [orderNumber, rmaName, rmaId, tracking, customerName, customerZip,
+         JSON.stringify(lineItems), skuFingerprint, carrier, createdAt, merchantId]
+      );
+
+      // 2. Save to returns (permanent record for billing/reports)
+      // Use ON CONFLICT-safe approach: check if already exists
+      const existingReturn = await client.query(
+        'SELECT id FROM returns WHERE order_number = $1 AND merchant_id = $2 LIMIT 1',
+        [orderNumber, merchantId]
+      );
+
+      let returnId;
+      if (existingReturn.rows.length > 0) {
+        // Update existing record
+        returnId = existingReturn.rows[0].id;
+        await client.query(
+          `UPDATE returns SET tracking_number=$1, customer_name=$2, customer_zip=$3,
+           sku_fingerprint=$4, carrier=$5, rr_created_at=$6, billing_rate=$7, billed_amount=$8
+           WHERE id=$9`,
+          [tracking, customerName, customerZip, skuFingerprint, carrier, createdAt,
+           billingRate, billedAmount, returnId]
+        );
+      } else {
+        // Insert new return
+        const returnRes = await client.query(
+          `INSERT INTO returns (
+            order_number, tracking_number, carrier, customer_name, customer_zip,
+            sku_fingerprint, condition, billing_rate, billed_amount,
+            rr_created_at, received_at, is_manual, merchant_id, notes
+          ) VALUES ($1,$2,$3,$4,$5,$6,'Good',$7,$8,$9,NOW(),false,$10,$11)
+          RETURNING id`,
+          [orderNumber, tracking, carrier, customerName, customerZip,
+           skuFingerprint, billingRate, billedAmount, createdAt, merchantId,
+           'Auto-created from AfterShip webhook (' + eventType + ')']
+        );
+        returnId = returnRes.rows[0].id;
+
+        // 3. Save line items
+        for (const li of lineItems) {
+          await client.query(
+            'INSERT INTO return_line_items (return_id, sku, product_name, quantity) VALUES ($1,$2,$3,$4)',
+            [returnId, li.sku || '--', li.product_name || 'Unknown item', li.quantity || 1]
+          );
+        }
+        // If no line items at all, insert a placeholder
+        if (lineItems.length === 0) {
+          await client.query(
+            'INSERT INTO return_line_items (return_id, sku, product_name, quantity) VALUES ($1,$2,$3,$4)',
+            [returnId, '--', 'AfterShip return (no items in payload)', 1]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      console.log(`[AfterShip Webhook] merchant ${merchantId}: saved ${orderNumber} → rr_cache + returns (id=${returnId}) (${eventType})`);
+      res.json({ success: true, order_number: orderNumber, return_id: returnId, event: eventType });
+
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
 
   } catch (err) {
     console.error(`[AfterShip Webhook Error] merchant ${merchantId}:`, err.message);
-    // Return 200 anyway to prevent AfterShip from retrying endlessly
+    // Return 200 to prevent AfterShip from retrying endlessly
     res.json({ success: false, error: err.message });
   }
 });
