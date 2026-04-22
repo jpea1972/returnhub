@@ -553,7 +553,7 @@ app.post('/api/db/sync', async (req, res) => {
   try {
     // Load merchant record
     const merchantRes = await pool.query(
-      'SELECT id, name, api_key, api_url, platform FROM merchants WHERE id = $1 AND active = true',
+      'SELECT id, name, api_key, api_url, platform, good_rate FROM merchants WHERE id = $1 AND active = true',
       [resolvedMerchantId]
     );
     if (merchantRes.rows.length === 0) {
@@ -1686,7 +1686,7 @@ app.post('/api/db/sync/:merchantId/trigger', async (req, res) => {
   if (!mid) return res.status(400).json({ error: 'Invalid merchant ID' });
   try {
     const mRes = await pool.query(
-      'SELECT id, name, platform, api_key, api_url FROM merchants WHERE id = $1 AND active = true',
+      'SELECT id, name, platform, api_key, api_url, good_rate FROM merchants WHERE id = $1 AND active = true',
       [mid]
     );
     if (mRes.rows.length === 0) return res.status(404).json({ error: 'Merchant not found or inactive' });
@@ -1786,89 +1786,25 @@ app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
     const rmaId = String(ret.id || ret.return_id || '');
     const createdAt = ret.created_at || ret.created || new Date().toISOString();
 
-    // Billing: use merchant rates, default condition = Good
+    // Billing: use merchant rates
     const billingRate = parseFloat(merchant.good_rate || 4);
-    const totalUnits = lineItems.reduce((s, li) => s + (li.quantity || 1), 0) || 1;
-    const billedAmount = billingRate * totalUnits;
 
-    // Use a transaction to save to BOTH tables atomically
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
+    // Save to BOTH rr_cache AND returns + return_line_items
+    const returnId = await upsertFullRecord({
+      order_number:    orderNumber,
+      rr_name:         ret.rma_number || ret.return_number || (ret.id ? `AS-${ret.id}` : null),
+      rr_id:           String(ret.id || ret.return_id || ''),
+      tracking_number: tracking,
+      customer_name:   customerName,
+      customer_zip:    customerZip,
+      line_items:      lineItems,
+      sku_fingerprint: skuFingerprint,
+      carrier:         carrier,
+      created_at:      ret.created_at || ret.created || new Date().toISOString(),
+    }, merchantId, billingRate, 'AfterShip webhook (' + eventType + ')');
 
-      // 1. Save to rr_cache (reference / lookup)
-      await client.query(
-        `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at, merchant_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),$11)
-         ON CONFLICT (order_number) DO UPDATE SET
-           rr_name=EXCLUDED.rr_name, rr_id=EXCLUDED.rr_id,
-           tracking_number=EXCLUDED.tracking_number, customer_name=EXCLUDED.customer_name,
-           customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
-           sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
-           rr_created_at=EXCLUDED.rr_created_at, merchant_id=EXCLUDED.merchant_id, synced_at=NOW()`,
-        [orderNumber, rmaName, rmaId, tracking, customerName, customerZip,
-         JSON.stringify(lineItems), skuFingerprint, carrier, createdAt, merchantId]
-      );
-
-      // 2. Save to returns (permanent record for billing/reports)
-      // Use ON CONFLICT-safe approach: check if already exists
-      const existingReturn = await client.query(
-        'SELECT id FROM returns WHERE order_number = $1 AND merchant_id = $2 LIMIT 1',
-        [orderNumber, merchantId]
-      );
-
-      let returnId;
-      if (existingReturn.rows.length > 0) {
-        // Update existing record
-        returnId = existingReturn.rows[0].id;
-        await client.query(
-          `UPDATE returns SET tracking_number=$1, customer_name=$2, customer_zip=$3,
-           sku_fingerprint=$4, carrier=$5, rr_created_at=$6, billing_rate=$7, billed_amount=$8
-           WHERE id=$9`,
-          [tracking, customerName, customerZip, skuFingerprint, carrier, createdAt,
-           billingRate, billedAmount, returnId]
-        );
-      } else {
-        // Insert new return
-        const returnRes = await client.query(
-          `INSERT INTO returns (
-            order_number, tracking_number, carrier, customer_name, customer_zip,
-            sku_fingerprint, condition, billing_rate, billed_amount,
-            rr_created_at, received_at, is_manual, merchant_id, notes
-          ) VALUES ($1,$2,$3,$4,$5,$6,'Good',$7,$8,$9,NOW(),false,$10,$11)
-          RETURNING id`,
-          [orderNumber, tracking, carrier, customerName, customerZip,
-           skuFingerprint, billingRate, billedAmount, createdAt, merchantId,
-           'Auto-created from AfterShip webhook (' + eventType + ')']
-        );
-        returnId = returnRes.rows[0].id;
-
-        // 3. Save line items
-        for (const li of lineItems) {
-          await client.query(
-            'INSERT INTO return_line_items (return_id, sku, product_name, quantity) VALUES ($1,$2,$3,$4)',
-            [returnId, li.sku || '--', li.product_name || 'Unknown item', li.quantity || 1]
-          );
-        }
-        // If no line items at all, insert a placeholder
-        if (lineItems.length === 0) {
-          await client.query(
-            'INSERT INTO return_line_items (return_id, sku, product_name, quantity) VALUES ($1,$2,$3,$4)',
-            [returnId, '--', 'AfterShip return (no items in payload)', 1]
-          );
-        }
-      }
-
-      await client.query('COMMIT');
-      console.log(`[AfterShip Webhook] merchant ${merchantId}: saved ${orderNumber} → rr_cache + returns (id=${returnId}) (${eventType})`);
-      res.json({ success: true, order_number: orderNumber, return_id: returnId, event: eventType });
-
-    } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
-    } finally {
-      client.release();
-    }
+    console.log(`[AfterShip Webhook] merchant ${merchantId}: saved ${orderNumber} → rr_cache + returns (id=${returnId}) (${eventType})`);
+    res.json({ success: true, order_number: orderNumber, return_id: returnId, event: eventType });
 
   } catch (err) {
     console.error(`[AfterShip Webhook Error] merchant ${merchantId}:`, err.message);
@@ -1915,6 +1851,90 @@ async function upsertCacheRecord(rec, merchantId) {
      rec.customer_name, rec.customer_zip, JSON.stringify(rec.line_items),
      rec.sku_fingerprint, rec.carrier, rec.created_at, merchantId]
   );
+}
+
+// Shared: save to BOTH rr_cache AND returns + return_line_items in one transaction.
+// Used by Loop and AfterShip adapters — ensures no data loss, records go straight to billing.
+// Return Rabbit still uses upsertCacheRecord() only (workers process those manually).
+async function upsertFullRecord(rec, merchantId, billingRate, source) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Save to rr_cache
+    await client.query(
+      `INSERT INTO rr_cache (order_number, rr_name, rr_id, tracking_number, customer_name, customer_zip, line_items, sku_fingerprint, carrier, rr_created_at, synced_at, merchant_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),$11)
+       ON CONFLICT (order_number) DO UPDATE SET
+         rr_name=EXCLUDED.rr_name, rr_id=EXCLUDED.rr_id,
+         tracking_number=EXCLUDED.tracking_number, customer_name=EXCLUDED.customer_name,
+         customer_zip=EXCLUDED.customer_zip, line_items=EXCLUDED.line_items,
+         sku_fingerprint=EXCLUDED.sku_fingerprint, carrier=EXCLUDED.carrier,
+         rr_created_at=EXCLUDED.rr_created_at, merchant_id=EXCLUDED.merchant_id, synced_at=NOW()`,
+      [rec.order_number, rec.rr_name, rec.rr_id, rec.tracking_number,
+       rec.customer_name, rec.customer_zip, JSON.stringify(rec.line_items),
+       rec.sku_fingerprint, rec.carrier, rec.created_at, merchantId]
+    );
+
+    // 2. Save to returns (check if already exists for this order + merchant)
+    const existing = await client.query(
+      'SELECT id FROM returns WHERE order_number = $1 AND merchant_id = $2 LIMIT 1',
+      [rec.order_number, merchantId]
+    );
+
+    const totalUnits = (rec.line_items || []).reduce((s, li) => s + (parseInt(li.quantity) || 1), 0) || 1;
+    const billedAmount = billingRate * totalUnits;
+    let returnId;
+
+    if (existing.rows.length > 0) {
+      returnId = existing.rows[0].id;
+      await client.query(
+        `UPDATE returns SET tracking_number=$1, customer_name=$2, customer_zip=$3,
+         sku_fingerprint=$4, carrier=$5, rr_created_at=$6, billing_rate=$7, billed_amount=$8
+         WHERE id=$9`,
+        [rec.tracking_number, rec.customer_name, rec.customer_zip,
+         rec.sku_fingerprint, rec.carrier, rec.created_at,
+         billingRate, billedAmount, returnId]
+      );
+    } else {
+      const returnRes = await client.query(
+        `INSERT INTO returns (
+          order_number, tracking_number, carrier, customer_name, customer_zip,
+          sku_fingerprint, condition, billing_rate, billed_amount,
+          rr_created_at, received_at, is_manual, merchant_id, notes
+        ) VALUES ($1,$2,$3,$4,$5,$6,'Good',$7,$8,$9,NOW(),false,$10,$11)
+        RETURNING id`,
+        [rec.order_number, rec.tracking_number, rec.carrier, rec.customer_name,
+         rec.customer_zip, rec.sku_fingerprint, billingRate, billedAmount,
+         rec.created_at, merchantId, 'Auto-created from ' + source]
+      );
+      returnId = returnRes.rows[0].id;
+
+      // 3. Save line items
+      const items = rec.line_items || [];
+      if (items.length > 0) {
+        for (const li of items) {
+          await client.query(
+            'INSERT INTO return_line_items (return_id, sku, product_name, quantity) VALUES ($1,$2,$3,$4)',
+            [returnId, li.sku || '--', li.product_name || 'Unknown item', li.quantity || 1]
+          );
+        }
+      } else {
+        await client.query(
+          'INSERT INTO return_line_items (return_id, sku, product_name, quantity) VALUES ($1,$2,$3,$4)',
+          [returnId, '--', source + ' return (no items in payload)', 1]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    return returnId;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ── ADAPTER: Return Rabbit ──────────────────────────────────────────
@@ -2081,7 +2101,8 @@ async function syncLoop(merchant) {
       const orderNumber = ret.order_name || ret.order_number || `LOOP-${ret.id}`;
 
       try {
-        await upsertCacheRecord({
+        const billingRate = parseFloat(merchant.good_rate || 4);
+        await upsertFullRecord({
           order_number:    orderNumber,
           rr_name:         ret.id ? `LOOP-${ret.id}` : null,
           rr_id:           String(ret.id),
@@ -2092,7 +2113,7 @@ async function syncLoop(merchant) {
           sku_fingerprint: skus.join('|'),
           carrier:         detectCarrier(tracking),
           created_at:      ret.created_at || ret.created,
-        }, merchant.id);
+        }, merchant.id, billingRate, 'Loop sync');
         recordsAdded++;
       } catch(e) { console.error(`[Loop Sync Insert] merchant ${merchant.id}:`, e.message); }
     }
@@ -2148,7 +2169,7 @@ function scheduleDailySync() {
     try {
       // Get all active merchants with sync enabled
       const merchantsRes = await pool.query(
-        'SELECT id, name, api_key, api_url, platform FROM merchants WHERE active = true AND sync_enabled = true ORDER BY id'
+        'SELECT id, name, api_key, api_url, platform, good_rate FROM merchants WHERE active = true AND sync_enabled = true ORDER BY id'
       );
       const merchants = merchantsRes.rows;
       if (merchants.length === 0) {
