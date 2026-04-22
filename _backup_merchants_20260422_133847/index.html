@@ -575,42 +575,6 @@
 </div>
 
 <div class="toast" id="tst"></div>
-<!-- MERCHANT MODAL -->
-<div class="mo" id="merchant-modal">
-  <div class="modal" style="width:560px">
-    <div class="mh"><div class="mt" id="mm-title">+ Add Merchant</div><button class="mcl" onclick="cm('merchant-modal')">✕</button></div>
-    <div class="mb" style="max-height:70vh;overflow-y:auto">
-      <div class="g2" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">Merchant Name</label><input class="fi" id="mm-name" placeholder="e.g. Acme Fitness" oninput="autoSlug()"></div>
-        <div class="fg"><label class="fl">Slug (URL-safe ID)</label><input class="fi" id="mm-slug" placeholder="acme-fitness" style="font-family:var(--fm)" oninput="this.dataset.manual='true'"></div>
-      </div>
-      <div class="g2" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">RMA Platform</label><select class="fsel" id="mm-platform"><option value="return_rabbit">Return Rabbit</option><option value="loop">Loop</option><option value="manual">Manual Only</option></select></div>
-        <div class="fg"><label class="fl">Shopify Domain</label><input class="fi" id="mm-shopify" placeholder="store.myshopify.com"></div>
-      </div>
-      <div class="g2" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">API Key / Token</label><input class="fi" id="mm-api-key" type="password" placeholder="Platform API key"></div>
-        <div class="fg"><label class="fl">API Base URL</label><input class="fi" id="mm-api-url" placeholder="https://api.returnrabbit.app"></div>
-      </div>
-      <div class="g2" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">Contact Email</label><input class="fi" id="mm-contact" placeholder="ops@client.com"></div>
-        <div class="fg"><label class="fl">Billing Email</label><input class="fi" id="mm-billing-email" placeholder="accounting@client.com"></div>
-      </div>
-      <div class="g2" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">Good Rate ($/unit)</label><input class="fi" id="mm-good-rate" type="number" step="0.01" value="4.00"></div>
-        <div class="fg"><label class="fl">Damaged Rate ($/unit)</label><input class="fi" id="mm-damaged-rate" type="number" step="0.01" value="4.00"></div>
-      </div>
-      <div class="g2" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">Sync Interval (hours)</label><input class="fi" id="mm-sync-interval" type="number" value="24" min="1"></div>
-        <div class="fg" style="display:flex;flex-direction:column;gap:8px;padding-top:18px">
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="mm-sync-enabled" checked style="accent-color:var(--Y)"> Sync Enabled</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="mm-active" checked style="accent-color:var(--Y)"> Active</label>
-        </div>
-      </div>
-    </div>
-    <div class="mf"><button class="btn bs" onclick="cm('merchant-modal')">Cancel</button><button class="btn bY" onclick="saveMerchant()">Save Merchant</button></div>
-  </div>
-</div>
 
 <!-- QZ Tray Library -->
 <script src="/vendor/qz-tray.js"></script>

@@ -183,7 +183,7 @@ async function finalizeProcess(){
         condition, billing_rate:billingRate, billed_amount:billedAmount,
         worker_id:dbWorkerId, session_id:dbSessionId, station:selStation_val,
         label_printed:false, rr_created_at:curR._rr_created_at||null, notes:null,
-        is_duplicate_override:curR._duplicateOverride||false, is_manual:curR._is_manual||false, merchant_id:activeMerchantId||1,
+        is_duplicate_override:curR._duplicateOverride||false, is_manual:curR._is_manual||false,
         line_items:curR.items.map(i => ({sku:i.sku, product_name:i.desc, quantity:i.qty}))
       };
       const res  = await fetch('/api/db/returns', {

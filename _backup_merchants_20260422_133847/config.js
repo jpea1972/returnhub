@@ -71,9 +71,3 @@ let RR_CONFIG = {
 };
 
 const BWEEKS = [];
-
-// ── Merchant state ──
-let dbMerchants       = [];
-let activeMerchantId  = null;
-let activeMerchant    = null;
-let _editMerchantId   = null;
