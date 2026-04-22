@@ -105,7 +105,6 @@ async function doLogin(){
     setTimeout(() => {
       loadDBCache();
       loadClientRates();
-      initQzPrint();
       updateScanStats();
       updateBillingCards();
       updateRRStats();
