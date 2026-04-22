@@ -1149,7 +1149,7 @@ app.get('/api/print/config', (req, res) => {
     success: true,
     printMode: process.env.PRINT_MODE || 'hybrid',
     qzEnabled: process.env.QZ_ENABLED !== 'false',
-    barTenderFallbackEnabled: process.env.BARTENDER_FALLBACK_ENABLED === 'true',
+    barTenderFallbackEnabled: (process.env.BARTENDER_FALLBACK_ENABLED || 'true') === 'true',
     defaultStock: process.env.DEFAULT_LABEL_STOCK || '3x2',
     defaultDpi: parseInt(process.env.DEFAULT_LABEL_DPI) || 300,
     defaultPrintMethod: process.env.DEFAULT_PRINT_METHOD || 'direct_thermal',
@@ -1165,7 +1165,8 @@ app.get('/api/print/config', (req, res) => {
 // ── QZ TRAY SECURITY ──────────────────────────────────────────────────
 
 app.get('/api/qz/certificate', (req, res) => {
-  const cert = process.env.QZ_PUBLIC_CERT_PEM || '';
+  let cert = process.env.QZ_PUBLIC_CERT_PEM || '';
+  if (!cert) { try { cert = require('fs').readFileSync(require('path').join(__dirname, 'qz-certificate.pem'), 'utf8'); } catch(e){} }
   if (!cert) {
     return res.status(500).send('QZ_PUBLIC_CERT_PEM not configured');
   }
@@ -1177,7 +1178,8 @@ app.post('/api/qz/sign', (req, res) => {
   if (!toSign) {
     return res.status(400).json({ error: 'toSign is required' });
   }
-  const privateKey = process.env.QZ_PRIVATE_KEY_PEM;
+  let privateKey = process.env.QZ_PRIVATE_KEY_PEM;
+  if (!privateKey) { try { privateKey = require('fs').readFileSync(require('path').join(__dirname, 'qz-private-key.pem'), 'utf8'); } catch(e){} }
   if (!privateKey) {
     return res.status(500).json({ error: 'QZ_PRIVATE_KEY_PEM not configured' });
   }
