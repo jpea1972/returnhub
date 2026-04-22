@@ -1014,27 +1014,27 @@ const STOCK_PROFILES = {
   },
   '3x2-300': {
     stock: '3x2', dpi: 300, pw: 900, ll: 600,
-    desc: { x: 60, y: 24, w: 780, maxLines: 2, lineGap: 6, fontSizes: [48, 42, 36] },
-    barcode: { x: 165, y: 178, module: 3, ratio: 3, height: 150 },
-    sku: { x: 60, y: 374, w: 780, maxLines: 1, lineGap: 0, fontSizes: [42, 36, 30] }
+    barcode: { x: 165, y: 30, module: 3, ratio: 3, height: 150 },
+    sku: { x: 60, y: 200, w: 780, maxLines: 1, lineGap: 0, fontSizes: [42, 36, 30] },
+    desc: { x: 60, y: 280, w: 780, maxLines: 3, lineGap: 6, fontSizes: [36, 30, 26, 22, 18] }
   },
   '4x2-300': {
     stock: '4x2', dpi: 300, pw: 1200, ll: 600,
-    desc: { x: 60, y: 24, w: 1080, maxLines: 2, lineGap: 6, fontSizes: [48, 42, 36] },
-    barcode: { x: 315, y: 178, module: 3, ratio: 3, height: 150 },
-    sku: { x: 60, y: 374, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [42, 36, 30] }
+    barcode: { x: 315, y: 30, module: 3, ratio: 3, height: 150 },
+    sku: { x: 60, y: 200, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [42, 36, 30] },
+    desc: { x: 60, y: 280, w: 1080, maxLines: 3, lineGap: 6, fontSizes: [36, 30, 26, 22] }
   },
   '4x3-300': {
     stock: '4x3', dpi: 300, pw: 1200, ll: 900,
-    desc: { x: 60, y: 30, w: 1080, maxLines: 3, lineGap: 6, fontSizes: [52, 46, 40] },
-    barcode: { x: 265, y: 260, module: 3, ratio: 3, height: 200 },
-    sku: { x: 60, y: 520, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [48, 42, 36] }
+    barcode: { x: 265, y: 40, module: 3, ratio: 3, height: 200 },
+    sku: { x: 60, y: 270, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [48, 42, 36] },
+    desc: { x: 60, y: 380, w: 1080, maxLines: 4, lineGap: 6, fontSizes: [42, 36, 30, 26] }
   },
   '4x6-300': {
     stock: '4x6', dpi: 300, pw: 1200, ll: 1800,
-    desc: { x: 60, y: 60, w: 1080, maxLines: 3, lineGap: 8, fontSizes: [56, 48, 42] },
-    barcode: { x: 215, y: 380, module: 4, ratio: 3, height: 280 },
-    sku: { x: 60, y: 730, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [52, 46, 40] }
+    barcode: { x: 215, y: 60, module: 4, ratio: 3, height: 280 },
+    sku: { x: 60, y: 380, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [52, 46, 40] },
+    desc: { x: 60, y: 500, w: 1080, maxLines: 4, lineGap: 8, fontSizes: [42, 36, 30, 26] }
   },
   // 203 DPI profiles
   '2x1-203': {
@@ -1045,27 +1045,27 @@ const STOCK_PROFILES = {
   },
   '3x2-203': {
     stock: '3x2', dpi: 203, pw: 610, ll: 406,
-    desc: { x: 40, y: 18, w: 530, maxLines: 2, lineGap: 4, fontSizes: [32, 28, 24] },
-    barcode: { x: 110, y: 122, module: 2, ratio: 3, height: 100 },
-    sku: { x: 40, y: 248, w: 530, maxLines: 1, lineGap: 0, fontSizes: [28, 24, 20] }
+    barcode: { x: 110, y: 20, module: 2, ratio: 3, height: 100 },
+    sku: { x: 40, y: 135, w: 530, maxLines: 1, lineGap: 0, fontSizes: [28, 24, 20] },
+    desc: { x: 40, y: 190, w: 530, maxLines: 3, lineGap: 4, fontSizes: [24, 20, 18, 16] }
   },
   '4x2-203': {
     stock: '4x2', dpi: 203, pw: 812, ll: 406,
-    desc: { x: 40, y: 18, w: 732, maxLines: 2, lineGap: 4, fontSizes: [32, 28, 24] },
-    barcode: { x: 210, y: 122, module: 2, ratio: 3, height: 100 },
-    sku: { x: 40, y: 248, w: 732, maxLines: 1, lineGap: 0, fontSizes: [28, 24, 20] }
+    barcode: { x: 210, y: 20, module: 2, ratio: 3, height: 100 },
+    sku: { x: 40, y: 135, w: 732, maxLines: 1, lineGap: 0, fontSizes: [28, 24, 20] },
+    desc: { x: 40, y: 190, w: 732, maxLines: 3, lineGap: 4, fontSizes: [24, 20, 18, 16] }
   },
   '4x3-203': {
     stock: '4x3', dpi: 203, pw: 812, ll: 609,
-    desc: { x: 40, y: 20, w: 732, maxLines: 3, lineGap: 4, fontSizes: [34, 30, 26] },
-    barcode: { x: 180, y: 176, module: 2, ratio: 3, height: 140 },
-    sku: { x: 40, y: 352, w: 732, maxLines: 1, lineGap: 0, fontSizes: [32, 28, 24] }
+    barcode: { x: 180, y: 28, module: 2, ratio: 3, height: 140 },
+    sku: { x: 40, y: 184, w: 732, maxLines: 1, lineGap: 0, fontSizes: [32, 28, 24] },
+    desc: { x: 40, y: 256, w: 732, maxLines: 4, lineGap: 4, fontSizes: [26, 22, 20, 18] }
   },
   '4x6-203': {
     stock: '4x6', dpi: 203, pw: 812, ll: 1218,
-    desc: { x: 40, y: 40, w: 732, maxLines: 3, lineGap: 6, fontSizes: [38, 32, 28] },
-    barcode: { x: 146, y: 258, module: 3, ratio: 3, height: 190 },
-    sku: { x: 40, y: 494, w: 732, maxLines: 1, lineGap: 0, fontSizes: [34, 30, 26] }
+    barcode: { x: 146, y: 40, module: 3, ratio: 3, height: 190 },
+    sku: { x: 40, y: 260, w: 732, maxLines: 1, lineGap: 0, fontSizes: [34, 30, 26] },
+    desc: { x: 40, y: 340, w: 732, maxLines: 4, lineGap: 6, fontSizes: [28, 24, 20, 18] }
   },
 };
 
@@ -1103,18 +1103,7 @@ function generateZPL(sku, description, stock, dpi, copies) {
   lines.push(`^LL${profile.ll}`);
   lines.push('^LH0,0');
 
-  // Description zone (if profile supports it)
-  if (profile.desc && description) {
-    const d = profile.desc;
-    const cleanDesc = (description || '').replace(/[<>&"]/g, ' ').trim().substring(0, 120);
-    const fitted = fitText(cleanDesc, d.w, d.fontSizes);
-    lines.push(`^FO${d.x},${d.y}`);
-    lines.push(`^A0N,${fitted.fontSize},${fitted.fontSize}`);
-    lines.push(`^FB${d.w},${d.maxLines},${d.lineGap || 0},C,0`);
-    lines.push(`^FD${fitted.text}^FS`);
-  }
-
-  // Barcode zone (Code 128)
+  // 1. Barcode zone (Code 128) — TOP
   if (cleanSku) {
     const bc = profile.barcode;
     lines.push(`^BY${bc.module},${bc.ratio},${bc.height}`);
@@ -1123,7 +1112,7 @@ function generateZPL(sku, description, stock, dpi, copies) {
     lines.push(`^FD${cleanSku}^FS`);
   }
 
-  // Human-readable SKU zone
+  // 2. Human-readable SKU — BELOW BARCODE
   if (cleanSku && profile.sku) {
     const s = profile.sku;
     const fitted = fitText(cleanSku, s.w, s.fontSizes);
@@ -1131,6 +1120,26 @@ function generateZPL(sku, description, stock, dpi, copies) {
     lines.push(`^A0N,${fitted.fontSize},${fitted.fontSize}`);
     lines.push(`^FB${s.w},${s.maxLines},${s.lineGap || 0},C,0`);
     lines.push(`^FD${fitted.text}^FS`);
+  }
+
+  // 3. Description — BOTTOM (full text, wraps with ^FB, font ladder scales down to fit)
+  if (profile.desc && description) {
+    const d = profile.desc;
+    const cleanDesc = (description || '').replace(/[<>&"]/g, ' ').trim();
+    // Use ^FB word wrap — try each font size until text fits within maxLines
+    let chosenSize = d.fontSizes[d.fontSizes.length - 1]; // start with smallest as fallback
+    for (const size of d.fontSizes) {
+      const charsPerLine = Math.floor(d.w / (size * 0.6));
+      const linesNeeded = Math.ceil(cleanDesc.length / charsPerLine);
+      if (linesNeeded <= d.maxLines) {
+        chosenSize = size;
+        break;
+      }
+    }
+    lines.push(`^FO${d.x},${d.y}`);
+    lines.push(`^A0N,${chosenSize},${chosenSize}`);
+    lines.push(`^FB${d.w},${d.maxLines},${d.lineGap || 0},C,0`);
+    lines.push(`^FD${cleanDesc}^FS`);
   }
 
   // Copies
