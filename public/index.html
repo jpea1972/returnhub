@@ -1537,7 +1537,7 @@ function saveRRToken(){
   toast('Connecting via server — testing…','s');
   testRRConnection();
 }
-
+function onTokenInput(){ /* token lives server-side — no-op in browser */ }
 function toggleToken(){
   const inp = document.getElementById('rr-token');
   const btn = document.getElementById('tok-vis-btn');
@@ -1609,7 +1609,79 @@ let rrSyncLock = false;
 // -- LOAD DB CACHE -- replaces direct RR API fetch ----------------
 // Loads only unprocessed returns from PostgreSQL DB.
 // Daily 6am Railway cron keeps DB current -- browser never hits RR directly.
+async function loadDBCache(){
+  if(rrSyncLock){ console.log('[Cache] locked'); return; }
+  rrSyncLock = true;
+  setRRStatus('syncing');
+  try {
+    const res = await fetch('/api/db/cache', { cache:'no-store' });
+    if(!res.ok) throw new Error('DB cache HTTP '+res.status);
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error||'Cache load failed');
 
+    RETURNS.length = 0;
+    const rows = data.returns || [];
+
+    if(rows.length === 0){
+      setRRStatus('connected');
+      addSyncLog('DB Cache','success','No unprocessed returns -- run Sync Now to populate');
+      toast('⚠ No returns in DB -- Admin: RR Integration > Sync Now','w');
+      rRR(); rQueue();
+      return;
+    }
+
+    for(const row of rows){
+      const lineItems = typeof row.line_items === 'string'
+        ? JSON.parse(row.line_items)
+        : (row.line_items || []);
+      RETURNS.push({
+        id:       row.order_number,
+        bc:       row.tracking_number || row.order_number || '',
+        cust:     row.customer_name   || '',
+        items: lineItems.map(li=>({
+          sku:   li.sku   || '--',
+          desc:  [li.product_name, li.variant].filter(Boolean).join(' - ') || li.name || '--',
+          qty:   parseInt(li.quantity || 1),
+          image: li.image_url || '',
+          price: parseFloat(li.payment_detail?.amount || 0),
+        })),
+        reason:   lineItems[0]?.reason || '--',
+        rma:      row.rr_name || row.order_number,
+        rrid:     row.rr_id   || row.order_number,
+        track:    row.tracking_number || '--',
+        date:     row.rr_created_at
+                    ? new Date(row.rr_created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})
+                    : '--',
+        shipDate: '--',
+        daysHeld: 0,
+        status:   'pending',
+        val:      0,
+        photo:    lineItems[0]?.image_url || '',
+        _sku_fingerprint: row.sku_fingerprint || '',
+        _rr_created_at:   row.rr_created_at   || null,
+        _carrier:         row.carrier         || 'USPS',
+        _customer_zip:    row.customer_zip    || null,
+      });
+    }
+
+    buildReturnsIndex();
+    RR_CONFIG.connected = true;
+    RR_CONFIG.lastSync  = new Date();
+    setRRStatus('connected');
+    addSyncLog('DB Cache loaded','success', rows.length+' unprocessed returns loaded');
+    toast('↻ '+rows.length+' returns loaded','s');
+    rRR(); rQueue();
+    updateTopStats(rows.length);
+
+  } catch(e){
+    setRRStatus('error');
+    addSyncLog('Cache error','error', e.message);
+    toast('Cache error: '+e.message.substring(0,60),'e');
+    console.error('[Cache Error]',e);
+  } finally {
+    rrSyncLock = false;
+  }
+}
 
 // fetchRR = "Sync Now" button on RR Integration tab
 // Triggers incremental server-side sync then reloads browser cache
@@ -1629,8 +1701,20 @@ async function fetchRR(){
     addSyncLog('Sync trigger error','error', e.message);
     toast('Sync failed: '+e.message.substring(0,50),'e');
   }
+  await loadDBCache();
 }
 
+function buildReturnsIndex(){
+  RETURNS_INDEX = {};
+  RETURNS.forEach(r=>{
+    const t = r.track;
+    if(t && t !== '--' && t !== ''){
+      if(!RETURNS_INDEX[t]) RETURNS_INDEX[t] = [];
+      RETURNS_INDEX[t].push(r);
+    }
+  });
+  console.log('[Index] Built with '+Object.keys(RETURNS_INDEX).length+' tracking keys');
+}
 
 function mapRRReturn(rma){
   // Field names from Return Rabbit API v1/service-requests/
@@ -1716,6 +1800,7 @@ async function procScanLive(code){
   document.getElementById('ssub').textContent='Looking up: '+code;
 
   // Log raw scan attempt
+  await logScanEvent(code, code, null, null);
 
   // STEP 1: O(1) hash map cache lookup
   let candidates = [];
@@ -1733,6 +1818,7 @@ async function procScanLive(code){
     return;
   }
   if(candidates.length > 1){
+    await logScanEvent(code, code, 'found_cache_multi', candidates[0].id);
     showScanPicker(candidates, code);
     return;
   }
@@ -1786,6 +1872,7 @@ async function procScanLive(code){
   }
 
   // STEP 3: Truly not found
+  await logScanEvent(code, code, 'not_found', null);
   z.className='sz err';
   document.getElementById('stitle').textContent='Not Found';
   document.getElementById('ssub').textContent='Try typing the order number (e.g. @702162)';
@@ -1815,6 +1902,7 @@ async function handleFoundReturn(r, scannedCode, lookupSource){
     });
     const dupData = await dupRes.json();
     if(dupData.duplicate){
+      await logScanEvent(scannedCode, r.track, 'duplicate', r.id);
       showDuplicateWarning(dupData.existing, r);
       return;
     }
@@ -1823,6 +1911,7 @@ async function handleFoundReturn(r, scannedCode, lookupSource){
     console.error('[Dup Check Error]',e.message);
   }
 
+  await logScanEvent(scannedCode, r.track, lookupSource, r.id);
   curR = r;
   z.className='sz found';
   document.getElementById('stitle').textContent='Return Found!';
@@ -1883,7 +1972,19 @@ function processDuplicateOverride(){
 }
 
 // -- LOG SCAN EVENT --------------------------------------------------
-
+async function logScanEvent(scannedValue, resolvedTracking, lookupResult, matchedOrder){
+  if(!dbSessionId || !dbWorkerId) return;
+  try {
+    await fetch('/api/db/scan-events',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        session_id: dbSessionId, worker_id: dbWorkerId,
+        scanned_value: scannedValue, resolved_tracking: resolvedTracking,
+        lookup_result: lookupResult, matched_order: matchedOrder
+      })
+    });
+  } catch(e){ console.error('[Scan Event]',e.message); }
+}
 
 async function loadPhoto(){
   if(!curR) return;
@@ -2147,6 +2248,7 @@ async function doLogin(){
     });
     initApp();
     toast('👋 Welcome, '+cu.n+' — Station '+selStation_val,'s');
+    setTimeout(()=>{ loadDBCache(); loadClientRates(); updateScanStats(); updateBillingCards(); updateRRStats(); updateLiveLeaderboard(); }, 800);
   } catch(e){
     toast('Server error: '+e.message,'e');
     console.error('[Login Error]',e);
@@ -2868,7 +2970,15 @@ function clearScan(){
 // ══════════════════════════════════════════════
 // PHOTO
 // ══════════════════════════════════════════════
-
+function loadPhoto(){
+  if(!curR)return;
+  const img=document.getElementById('pimg');
+  const ph=document.getElementById('pp-ph');
+  ph.innerHTML='<div style="font-size:11px;color:var(--tx3)">Loading…</div>';
+  img.onload=()=>{img.classList.add('ld');img.style.display='block';ph.style.display='none';};
+  img.onerror=()=>imgErr(img);
+  img.src=curR.photo;
+}
 /* replaced by RR integration layer */
 /* replaced by RR integration layer */
 
@@ -3033,6 +3143,7 @@ async function refreshQueue(){
   if(lbl) lbl.textContent = 'Refreshing...';
   try {
     // Reload DB cache
+    await loadDBCache();
     // Reload processed returns
     await loadProcessedReturns();
     rQueue();
