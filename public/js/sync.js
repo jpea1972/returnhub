@@ -106,13 +106,13 @@ async function loadDBCache(){
         id:       row.order_number,
         bc:       row.tracking_number || row.order_number || '',
         cust:     row.customer_name || '',
-        items:    lineItems.map(li => ({
+        items:    lineItems.length > 0 ? lineItems.map(li => ({
           sku:   li.sku   || '--',
           desc:  [li.product_name, li.variant].filter(Boolean).join(' - ') || li.name || '--',
           qty:   parseInt(li.quantity || 1),
           image: li.image_url || '',
           price: parseFloat(li.payment_detail?.amount || 0),
-        })),
+        })) : [{sku:'--', desc:'No items', qty:1, image:'', price:0}],
         reason:   lineItems[0]?.reason || '--',
         rma:      row.rr_name || row.order_number,
         rrid:     row.rr_id   || row.order_number,
