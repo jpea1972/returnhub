@@ -9,7 +9,7 @@ async function saveRates(){
   try {
     const res  = await fetch('/api/db/rates', {
       method:'PUT', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({good_rate:good, damaged_rate:damaged, worker_id:dbWorkerId})
+      body:JSON.stringify({good_rate:good, damaged_rate:damaged, worker_id:dbWorkerId, merchant_id:activeMerchantId||null})
     });
     const data = await res.json();
     if(data.success){
@@ -23,7 +23,7 @@ async function saveRates(){
 
 async function loadClientRates(){
   try {
-    const res  = await fetch('/api/db/rates');
+    const res  = await fetch('/api/db/rates' + (activeMerchantId ? '?merchant_id=' + activeMerchantId : ''));
     const data = await res.json();
     if(data.success){
       CLIENT_RATES = {good:parseFloat(data.good_rate), damaged:parseFloat(data.damaged_rate||data.good_rate)};
@@ -71,7 +71,8 @@ async function updateBillingCards(){
     saturday.setDate(monday.getDate()+5);
     saturday.setHours(23,59,59,999);
 
-    const wRes  = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(monday.toISOString())+'&date_to='+encodeURIComponent(saturday.toISOString()));
+    const mParam = activeMerchantId ? '&merchant_id=' + activeMerchantId : '';
+    const wRes  = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(monday.toISOString())+'&date_to='+encodeURIComponent(saturday.toISOString())+mParam);
     const wData = await wRes.json();
     const wb    = wData.billing||{};
     const wGood  = parseInt(wb.total_good||0);
@@ -80,7 +81,7 @@ async function updateBillingCards(){
     const wTotal = parseFloat(wb.total_revenue||0);
 
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const mRes  = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(mtdStart.toISOString()));
+    const mRes  = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(mtdStart.toISOString())+mParam);
     const mData = await mRes.json();
     const mb    = mData.billing||{};
     const mTotal = parseFloat(mb.total_revenue||0);
@@ -93,7 +94,7 @@ async function updateBillingCards(){
     document.getElementById('bill-mtd-label') && (document.getElementById('bill-mtd-label').textContent = monthName);
 
     const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-    const tRes   = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(todayStart.toISOString()));
+    const tRes   = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(todayStart.toISOString())+mParam);
     const tData  = await tRes.json();
     const tb2    = tData.billing||{};
     const todayUnits = parseInt(tb2.total_units||0)||parseInt(tb2.total_good||0)+parseInt(tb2.total_damaged||0);
@@ -119,9 +120,10 @@ async function renderBilling(){
     const dateFrom = monday.toISOString();
     const dateTo   = saturday.toISOString();
 
+    const mParam = activeMerchantId ? '&merchant_id=' + activeMerchantId : '';
     const [rRes,bRes] = await Promise.all([
-      fetch('/api/db/returns/search?limit=500&date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo)),
-      fetch('/api/db/reports/billing?date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo))
+      fetch('/api/db/returns/search?limit=500&date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo)+mParam),
+      fetch('/api/db/reports/billing?date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo)+mParam)
     ]);
     const rData   = await rRes.json();
     const bData   = await bRes.json();
@@ -207,7 +209,8 @@ function getInvoiceNum(monday){
 
 async function exportInvoiceCSV(mondayISO, saturdayISO, invNum){
   try {
-    const res     = await fetch('/api/db/returns/search?limit=500&date_from='+encodeURIComponent(mondayISO)+'&date_to='+encodeURIComponent(saturdayISO));
+    const mParam = activeMerchantId ? '&merchant_id=' + activeMerchantId : '';
+    const res     = await fetch('/api/db/returns/search?limit=500&date_from='+encodeURIComponent(mondayISO)+'&date_to='+encodeURIComponent(saturdayISO)+mParam);
     const data    = await res.json();
     const returns = data.returns||[];
     if(returns.length===0){ toast('No returns for this period','e'); return; }
@@ -227,7 +230,7 @@ async function exportInvoiceCSV(mondayISO, saturdayISO, invNum){
     const blob = new Blob([csv],{type:'text/csv'});
     const a    = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
-    a.download = invNum+'-Paragonfitwear.csv';
+    a.download = invNum+'-'+(activeMerchant?.name||'Paragonfitwear')+'.csv';
     a.click();
     toast('↓ '+invNum+' downloaded','s');
   } catch(e){ toast('Export failed: '+e.message,'e'); }
@@ -249,8 +252,9 @@ async function renderInvoiceHistory(){
       saturday.setHours(23,59,59,999);
       weeks.push({monday,saturday});
     }
+    const mParam = activeMerchantId ? '&merchant_id=' + activeMerchantId : '';
     const results=await Promise.all(weeks.map(({monday,saturday})=>
-      fetch('/api/db/reports/billing?date_from='+encodeURIComponent(monday.toISOString())+'&date_to='+encodeURIComponent(saturday.toISOString()))
+      fetch('/api/db/reports/billing?date_from='+encodeURIComponent(monday.toISOString())+'&date_to='+encodeURIComponent(saturday.toISOString())+mParam)
         .then(r=>r.json()).then(d=>({...d.billing,monday,saturday}))
     ));
     results.forEach((w,i)=>{

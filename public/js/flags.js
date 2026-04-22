@@ -5,6 +5,7 @@
 async function loadFlags(conditionFilter='all', dateFrom=null, dateTo=null){
   try {
     let url = '/api/db/flags?limit=500';
+    if(activeMerchantId) url += '&merchant_id=' + activeMerchantId;
     if(conditionFilter && conditionFilter !== 'all') url += '&condition=' + encodeURIComponent(conditionFilter);
     if(dateFrom) url += '&date_from=' + encodeURIComponent(dateFrom);
     if(dateTo)   url += '&date_to='   + encodeURIComponent(dateTo);

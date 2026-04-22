@@ -6,7 +6,8 @@ async function loadProcessedReturns(){
   try {
     const today = new Date();
     today.setHours(0,0,0,0);
-    const res  = await fetch('/api/db/returns/search?limit=500&date_from=' + encodeURIComponent(today.toISOString()));
+    const mParam = activeMerchantId ? '&merchant_id=' + activeMerchantId : '';
+    const res  = await fetch('/api/db/returns/search?limit=500&date_from=' + encodeURIComponent(today.toISOString()) + mParam);
     const data = await res.json();
     if(data.success){
       processedReturns = data.returns || [];

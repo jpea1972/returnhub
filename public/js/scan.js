@@ -113,7 +113,8 @@ async function handleFoundReturn(r, scannedCode, lookupSource){
         tracking_number: r.track,
         order_number:    r.id,
         customer_name:   r.cust,
-        sku_fingerprint: skuFp
+        sku_fingerprint: skuFp,
+        merchant_id:     activeMerchantId || 1
       })
     });
     const dupData = await dupRes.json();

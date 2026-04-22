@@ -4,7 +4,7 @@
 
 async function updateRRStats(){
   try {
-    const res  = await fetch('/api/db/rr-stats');
+    const res  = await fetch('/api/db/rr-stats' + (activeMerchantId ? '?merchant_id=' + activeMerchantId : ''));
     const data = await res.json();
     if(data.success){
       document.getElementById('rr-open')      && (document.getElementById('rr-open').textContent      = data.open_rmas);
@@ -17,7 +17,7 @@ async function updateRRStats(){
 
 async function renderDaysHeld(){
   try {
-    const res  = await fetch('/api/db/days-held');
+    const res  = await fetch('/api/db/days-held' + (activeMerchantId ? '?merchant_id=' + activeMerchantId : ''));
     const data = await res.json();
     if(!data.success) return;
     const s = data.summary;
@@ -70,7 +70,8 @@ async function loadProductivity(){
   try {
     const dateFrom = new Date(from).toISOString();
     const dateTo   = to?new Date(to+'T23:59:59').toISOString():new Date(from+'T23:59:59').toISOString();
-    const res  = await fetch('/api/db/reports/productivity-summary?date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo));
+    const mParam = activeMerchantId ? '&merchant_id=' + activeMerchantId : '';
+    const res  = await fetch('/api/db/reports/productivity-summary?date_from='+encodeURIComponent(dateFrom)+'&date_to='+encodeURIComponent(dateTo)+mParam);
     const data = await res.json();
     if(!data.success) return;
     const workers      = data.workers||[];
@@ -124,7 +125,8 @@ async function loadProductivity(){
 async function updateLiveLeaderboard(){
   try {
     const today = new Date().toLocaleDateString('en-CA');
-    const res   = await fetch('/api/db/reports/productivity-summary?date_from='+encodeURIComponent(new Date(today).toISOString())+'&date_to='+encodeURIComponent(new Date(today+'T23:59:59').toISOString()));
+    const mParam = activeMerchantId ? '&merchant_id=' + activeMerchantId : '';
+    const res   = await fetch('/api/db/reports/productivity-summary?date_from='+encodeURIComponent(new Date(today).toISOString())+'&date_to='+encodeURIComponent(new Date(today+'T23:59:59').toISOString())+mParam);
     const data  = await res.json();
     if(!data.success) return;
     const workers   = data.workers||[];
@@ -153,7 +155,8 @@ async function updateScanStats(){
   try {
     const today=new Date(); today.setHours(0,0,0,0);
     const todayEnd=new Date(); todayEnd.setHours(23,59,59,999);
-    const res  = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString()));
+    const mParam = activeMerchantId ? '&merchant_id=' + activeMerchantId : '';
+    const res  = await fetch('/api/db/reports/billing?date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString())+mParam);
     const data = await res.json();
     const b    = data.billing||{};
     const totalToday=parseInt(b.total_units||0)||parseInt(b.total_returns||0);
@@ -165,7 +168,7 @@ async function updateScanStats(){
     document.getElementById('s3').textContent=pending;
     document.getElementById('s4').textContent=nonGood;
     if(dbWorkerId&&sessionStartTime){
-      const wRes=await fetch('/api/db/reports/productivity?worker_id='+dbWorkerId+'&date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString()));
+      const wRes=await fetch('/api/db/reports/productivity?worker_id='+dbWorkerId+'&date_from='+encodeURIComponent(today.toISOString())+'&date_to='+encodeURIComponent(todayEnd.toISOString())+mParam);
       const wData=await wRes.json();
       const rows=wData.rows||[];
       const myUnits=rows.reduce((s,r)=>s+parseInt(r.units_processed||r.returns_processed||0),0);

@@ -81,7 +81,8 @@ async function loadDBCache(){
   rrSyncLock = true;
   setRRStatus('syncing');
   try {
-    const res  = await fetch('/api/db/cache', { cache:'no-store' });
+    const mid = activeMerchantId || '';
+    const res  = await fetch('/api/db/cache' + (mid ? '?merchant_id=' + mid : ''), { cache:'no-store' });
     if(!res.ok) throw new Error('DB cache HTTP ' + res.status);
     const data = await res.json();
     if(!data.success) throw new Error(data.error || 'Cache load failed');
@@ -153,7 +154,7 @@ async function loadDBCache(){
 async function fetchRR(){
   try {
     toast('Triggering incremental sync...', 's');
-    const res  = await fetch('/api/db/sync', {method:'POST', headers:{'Content-Type':'application/json'}});
+    const res  = await fetch('/api/db/sync', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({merchant_id: activeMerchantId || 1})});
     const data = await res.json();
     if(data.success){
       addSyncLog('Incremental sync', 'success', data.records_added + ' new records, ' + data.pages_fetched + ' pages');
