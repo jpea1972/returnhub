@@ -1113,7 +1113,7 @@ function generateZPL(sku, description, stock, dpi, copies) {
     const barcodeWidth = (11 * (cleanSku.length + 3) + 2) * module;
     const centerX = Math.max(20, Math.round((profile.pw - barcodeWidth) / 2));
     // Scale height proportionally if module shrunk
-    const height = module < bc.module ? Math.round(bc.height * (module / bc.module)) : bc.height;
+    const height = bc.height;
 
     lines.push(`^BY${module},${bc.ratio},${height}`);
     lines.push(`^FO${centerX},${bc.y}`);
