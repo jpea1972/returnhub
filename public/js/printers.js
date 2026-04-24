@@ -2,6 +2,17 @@
 // PRINTERS — Printer manager
 // ══════════════════════════════════════════════
 
+function savePrinters(){
+  try { localStorage.setItem('rh_printers', JSON.stringify(printers)); } catch(e){}
+}
+
+function loadPrinters(){
+  try {
+    const saved = localStorage.getItem('rh_printers');
+    if(saved) printers = JSON.parse(saved);
+  } catch(e){}
+}
+
 function rPrinters(){
   const el = document.getElementById('plist'); if(!el) return;
   el.innerHTML = printers.map(p => `
@@ -22,14 +33,14 @@ function rPrinters(){
 
 function setDef(id){
   printers.forEach(p => p.def = p.id === id);
-  rPrinters(); popPSel();
+  savePrinters(); rPrinters(); popPSel();
   toast('Default printer updated', 's');
 }
 
 function remP(id){
   if(confirm('Remove?')){
     printers = printers.filter(p => p.id !== id);
-    rPrinters();
+    savePrinters(); rPrinters();
     toast('Printer removed', 'e');
   }
 }
@@ -52,7 +63,7 @@ function saveP(){
     def:   printers.length===0,
     online:true
   });
-  cm('apm'); rPrinters(); popPSel();
+  savePrinters(); cm('apm'); rPrinters(); popPSel();
   toast('Printer "'+n+'" added', 's');
   ['np-name','np-ip','np-loc'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value='';

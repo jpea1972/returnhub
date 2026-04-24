@@ -17,6 +17,7 @@ let printers = [
   {id:'p1', n:'Station A — Zebra ZD420', ip:'192.168.120.52', port:'9100', brand:'Zebra', lang:'ZPL', size:'3x2', dpi:300, media:'thermal-direct', sense:'black-mark', loc:'Returns Station A', def:true,  online:true},
   {id:'p2', n:'Station B — Zebra ZD621', ip:'192.168.120.60', port:'9100', brand:'Zebra', lang:'ZPL', size:'3x2', dpi:300, media:'thermal-direct', sense:'black-mark', loc:'Returns Station B', def:false, online:true},
 ];
+try { const sp = localStorage.getItem('rh_printers'); if(sp) printers = JSON.parse(sp); } catch(e){}
 
 const DMG_CHECKS = [
   'Torn / Ripped seam','Makeup Stains','Deodorant Stains','V-Stain',
