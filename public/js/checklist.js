@@ -68,7 +68,7 @@ function buildItemRow(item, idx, orderId){
       </div>
       <div class="icr-qty" id="iqty-${idx}" title="Expected qty">${item.qty}</div>
       <div class="icr-actions">
-        <button class="ia-btn ia-print" onclick="openPM('${item.sku}','${item.desc}','${orderId}',${item.qty})" title="Print bag label">🖨 Print</button>
+        <button class="ia-btn ia-print" onclick="openPM('${item.sku.replace(/[\n\r\']/g," ")}','${item.desc.replace(/[\n\r\']/g," ")}','${orderId}',${item.qty})" title="Print bag label">🖨 Print</button>
         <button class="ia-btn ia-partial" id="iap-${idx}" onclick="toggleSub(${idx},'partial',${item.qty})" title="Partial — enter qty received">⅟ Partial</button>
         <button class="ia-btn ia-dmg"    id="iad-${idx}" onclick="toggleSub(${idx},'damaged',${item.qty})" title="Add damage notes">🗑 Damage</button>
         <button class="ia-btn ia-wrong"  id="iaw-${idx}" onclick="toggleSub(${idx},'wrong',${item.qty})"   title="Wrong product received">❓ Wrong</button>
