@@ -1098,16 +1098,30 @@ function generateZPL(sku, description, stock, dpi, copies) {
   lines.push(`^LL${profile.ll}`);
   lines.push('^LH0,0');
 
-  // 1. Barcode zone (Code 128) — TOP
+  // 1. Barcode zone (Code 128) — TOP, auto-sized and centered
   if (cleanSku) {
     const bc = profile.barcode;
-    lines.push(`^BY${bc.module},${bc.ratio},${bc.height}`);
-    lines.push(`^FO${bc.x},${bc.y}`);
-    lines.push(`^BCN,${bc.height},N,N,N`);
+    // Code 128 width ≈ (11 * (chars + 3) + 2) * module
+    // Auto-select module width to fit within label width with margins
+    const availWidth = profile.pw - 40; // 20px margin each side
+    let module = bc.module;
+    for (let m = bc.module; m >= 1; m--) {
+      const barcodeWidth = (11 * (cleanSku.length + 3) + 2) * m;
+      if (barcodeWidth <= availWidth) { module = m; break; }
+      module = m;
+    }
+    const barcodeWidth = (11 * (cleanSku.length + 3) + 2) * module;
+    const centerX = Math.max(20, Math.round((profile.pw - barcodeWidth) / 2));
+    // Scale height proportionally if module shrunk
+    const height = module < bc.module ? Math.round(bc.height * (module / bc.module)) : bc.height;
+
+    lines.push(`^BY${module},${bc.ratio},${height}`);
+    lines.push(`^FO${centerX},${bc.y}`);
+    lines.push(`^BCN,${height},N,N,N`);
     lines.push(`^FD${cleanSku}^FS`);
   }
 
-  // 2. Human-readable SKU — BELOW BARCODE
+  // 2. Human-readable SKU — BELOW BARCODE, centered
   if (cleanSku && profile.sku) {
     const s = profile.sku;
     const fitted = fitText(cleanSku, s.w, s.fontSizes);
@@ -1121,8 +1135,7 @@ function generateZPL(sku, description, stock, dpi, copies) {
   if (profile.desc && description) {
     const d = profile.desc;
     const cleanDesc = (description || '').replace(/[<>&"]/g, ' ').trim();
-    // Use ^FB word wrap — try each font size until text fits within maxLines
-    let chosenSize = d.fontSizes[d.fontSizes.length - 1]; // start with smallest as fallback
+    let chosenSize = d.fontSizes[d.fontSizes.length - 1];
     for (const size of d.fontSizes) {
       const charsPerLine = Math.floor(d.w / (size * 0.6));
       const linesNeeded = Math.ceil(cleanDesc.length / charsPerLine);
