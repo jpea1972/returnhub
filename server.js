@@ -687,12 +687,12 @@ app.put('/api/db/flags/:id', async (req, res) => {
 // ── RETURN LINE FLAGS: Get flags for Returns Report ───────────────────
 // ?merchant_id=X filters to a specific merchant via returns join
 app.get('/api/db/flags', async (req, res) => {
-  const { condition, date_from, date_to, merchant_id, limit = 500, offset = 0 } = req.query;
+  const { condition, date_from, date_to, merchant_id, q, limit = 500, offset = 0 } = req.query;
   try {
     let where = ['1=1'];
     let params = [];
     let i = 1;
-    const needsReturnJoin = !!merchant_id;
+    const needsReturnJoin = !!merchant_id || !!q;
     if (merchant_id) {
       where.push(`r.merchant_id = $${i}`); params.push(parseInt(merchant_id)); i++;
     }
@@ -701,6 +701,11 @@ app.get('/api/db/flags', async (req, res) => {
     }
     if (date_from) { where.push(`f.created_at >= $${i}`); params.push(date_from); i++; }
     if (date_to)   { where.push(`f.created_at <= $${i}`); params.push(date_to);   i++; }
+    if (q) {
+      where.push(`(f.order_number ILIKE $${i} OR f.rma_name ILIKE $${i} OR f.customer_name ILIKE $${i} OR f.sku ILIKE $${i} OR f.product_name ILIKE $${i} OR r.tracking_number ILIKE $${i})`);
+      params.push(`%${q.replace(/^@/, '')}%`);
+      i++;
+    }
     params.push(parseInt(limit));
     params.push(parseInt(offset));
     const result = await pool.query(
@@ -711,7 +716,7 @@ app.get('/api/db/flags', async (req, res) => {
         f.created_at,
         w.initials as worker_initials, w.full_name as worker_name
        FROM return_line_flags f
-       ${needsReturnJoin ? 'JOIN returns r ON f.return_id = r.id' : ''}
+       ${needsReturnJoin ? 'LEFT JOIN returns r ON f.return_id = r.id' : ''}
        LEFT JOIN workers w ON f.worker_id = w.id
        WHERE ${where.join(' AND ')}
        ORDER BY f.created_at DESC

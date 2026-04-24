@@ -9,22 +9,10 @@ async function loadFlags(conditionFilter='all', dateFrom=null, dateTo=null, sear
     if(conditionFilter && conditionFilter !== 'all') url += '&condition=' + encodeURIComponent(conditionFilter);
     if(dateFrom) url += '&date_from=' + encodeURIComponent(dateFrom);
     if(dateTo)   url += '&date_to='   + encodeURIComponent(dateTo);
+    if(search && search.trim()) url += '&q=' + encodeURIComponent(search.trim());
     const res  = await fetch(url);
     const data = await res.json();
-    if(data.success) {
-      dbFlags = data.flags || [];
-      // Client-side search filter
-      if(search && search.trim()){
-        const q = search.trim().toLowerCase();
-        dbFlags = dbFlags.filter(f =>
-          (f.order_number||'').toLowerCase().includes(q) ||
-          (f.rma_name||'').toLowerCase().includes(q) ||
-          (f.customer_name||'').toLowerCase().includes(q) ||
-          (f.sku||'').toLowerCase().includes(q) ||
-          (f.product_name||'').toLowerCase().includes(q)
-        );
-      }
-    }
+    if(data.success) dbFlags = data.flags || [];
   } catch(e){ console.error('[Flags Load]', e.message); }
 }
 
