@@ -2,6 +2,14 @@
 // CHECKLIST — Item validation UI
 // ══════════════════════════════════════════════
 
+function openPM_idx(idx){
+  if(!curR || !curR.items[idx]) return;
+  var item = curR.items[idx];
+  var sku = (item.sku || '').replace(/[\n\r"']/g, ' ');
+  var desc = (item.desc || '').replace(/[\n\r"']/g, ' ');
+  openPM(sku, desc, curR.id, item.qty);
+}
+
 function showDetail(r){
   const sm = {arrived:'bb',pending:'ba',flagged:'br',processed:'bg',damaged:'br'};
   const st = {arrived:'ARRIVED',pending:'PENDING',flagged:'FLAGGED',processed:'PROCESSED',damaged:'DAMAGED'};
@@ -68,7 +76,7 @@ function buildItemRow(item, idx, orderId){
       </div>
       <div class="icr-qty" id="iqty-${idx}" title="Expected qty">${item.qty}</div>
       <div class="icr-actions">
-        <button class="ia-btn ia-print" onclick="openPM('${item.sku.replace(/[\n\r\']/g," ")}','${item.desc.replace(/[\n\r\']/g," ")}','${orderId}',${item.qty})" title="Print bag label">🖨 Print</button>
+        <button class="ia-btn ia-print" onclick="openPM_idx(${idx})" title="Print bag label">🖨 Print</button>
         <button class="ia-btn ia-partial" id="iap-${idx}" onclick="toggleSub(${idx},'partial',${item.qty})" title="Partial — enter qty received">⅟ Partial</button>
         <button class="ia-btn ia-dmg"    id="iad-${idx}" onclick="toggleSub(${idx},'damaged',${item.qty})" title="Add damage notes">🗑 Damage</button>
         <button class="ia-btn ia-wrong"  id="iaw-${idx}" onclick="toggleSub(${idx},'wrong',${item.qty})"   title="Wrong product received">❓ Wrong</button>
