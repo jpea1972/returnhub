@@ -2,7 +2,7 @@
 // FLAGS — Discrepancy / Returns Report
 // ══════════════════════════════════════════════
 
-async function loadFlags(conditionFilter='all', dateFrom=null, dateTo=null){
+async function loadFlags(conditionFilter='all', dateFrom=null, dateTo=null, search=null){
   try {
     let url = '/api/db/flags?limit=500';
     if(activeMerchantId) url += '&merchant_id=' + activeMerchantId;
@@ -11,30 +11,61 @@ async function loadFlags(conditionFilter='all', dateFrom=null, dateTo=null){
     if(dateTo)   url += '&date_to='   + encodeURIComponent(dateTo);
     const res  = await fetch(url);
     const data = await res.json();
-    if(data.success) dbFlags = data.flags || [];
+    if(data.success) {
+      dbFlags = data.flags || [];
+      // Client-side search filter
+      if(search && search.trim()){
+        const q = search.trim().toLowerCase();
+        dbFlags = dbFlags.filter(f =>
+          (f.order_number||'').toLowerCase().includes(q) ||
+          (f.rma_name||'').toLowerCase().includes(q) ||
+          (f.customer_name||'').toLowerCase().includes(q) ||
+          (f.sku||'').toLowerCase().includes(q) ||
+          (f.product_name||'').toLowerCase().includes(q)
+        );
+      }
+    }
   } catch(e){ console.error('[Flags Load]', e.message); }
+}
+
+function getFlagsFilterState(){
+  const from   = document.getElementById('flags-date-from')?.value || null;
+  const to     = document.getElementById('flags-date-to')?.value || null;
+  const search = document.getElementById('flags-search')?.value || null;
+  return {
+    dateFrom: from ? new Date(from).toISOString() : null,
+    dateTo:   to   ? new Date(to + 'T23:59:59').toISOString() : null,
+    search:   search
+  };
 }
 
 function applyFlagsDateFilter(){
   const from = document.getElementById('flags-date-from')?.value;
-  const to   = document.getElementById('flags-date-to')?.value;
   if(!from){ toast('Select a start date', 'e'); return; }
-  rFlags('all',
-    from ? new Date(from).toISOString() : null,
-    to   ? new Date(to + 'T23:59:59').toISOString() : null
-  );
+  rFlags('all');
 }
 
 function clearFlagsDateFilter(){
   const fi = document.getElementById('flags-date-from');
   const ti = document.getElementById('flags-date-to');
+  const si = document.getElementById('flags-search');
   if(fi) fi.value = '';
   if(ti) ti.value = '';
+  if(si) si.value = '';
   rFlags('all');
 }
 
+function searchFlags(){
+  rFlags('all');
+}
+
+function onFlagsSearchKey(e){
+  if(e.key === 'Enter') searchFlags();
+}
+
 async function rFlags(conditionFilter='all'){
-  await loadFlags(conditionFilter);
+  const filters = getFlagsFilterState();
+  await loadFlags(conditionFilter, filters.dateFrom, filters.dateTo, filters.search);
   const tb = document.getElementById('ftbody'); if(!tb) return;
 
   const total   = dbFlags.length;
@@ -53,7 +84,10 @@ async function rFlags(conditionFilter='all'){
   document.getElementById('fl-d')       && (document.getElementById('fl-d').textContent       = damaged);
 
   if(dbFlags.length === 0){
-    tb.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:20px;color:var(--tx3)">No returns found</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:20px;color:var(--tx3)">No returns found' +
+      (filters.search ? ' matching "' + filters.search + '"' : '') +
+      (filters.dateFrom ? ' in selected date range' : '') +
+      '</td></tr>';
     return;
   }
 

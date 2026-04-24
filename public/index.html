@@ -393,7 +393,7 @@
     <!-- RETURNS REPORT -->
     <div class="sec" id="tab-flags">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <div><div style="font-family:var(--fd);font-size:17px;font-weight:700">Returns Report — Paragonfitwear</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">All processed returns · Damage · Partial · Missing · Wrong product</div></div>
+        <div><div style="font-family:var(--fd);font-size:17px;font-weight:700" id="flags-title">Returns Report</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">All processed returns · Damage · Partial · Missing · Wrong product</div></div>
         <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2)">
             <label style="font-family:var(--fm);text-transform:uppercase;letter-spacing:.5px">From</label>
@@ -402,6 +402,10 @@
             <input type="date" id="flags-date-to" class="fi" style="padding:5px 8px;font-size:11px;width:130px">
             <button class="btn bs sm" onclick="applyFlagsDateFilter()">Apply</button>
             <button class="btn bs sm" onclick="clearFlagsDateFilter()">All</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <input type="text" id="flags-search" class="fi" placeholder="Search order, tracking, SKU…" onkeydown="onFlagsSearchKey(event)" style="padding:5px 10px;font-size:11px;width:200px">
+            <button class="btn bs sm" onclick="searchFlags()">🔍</button>
           </div>
           <button class="btn bs sm" onclick="dlReport()">↓ Excel</button>
           <button class="btn bY sm" onclick="om('emo')">📧 Email to Paragon</button>
