@@ -106,6 +106,7 @@ async function doLogin(){
       loadDBCache();
       loadClientRates();
       loadMerchants();
+      loadPrinters();
       initQzPrint();
       updateScanStats();
       updateBillingCards();

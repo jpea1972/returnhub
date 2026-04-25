@@ -1004,8 +1004,8 @@ const STOCK_PROFILES = {
   '2x1-300': {
     stock: '2x1', dpi: 300, pw: 600, ll: 300,
     desc: null, // no room for description on 2x1
-    barcode: { x: 75, y: 10, module: 2, ratio: 3, height: 190 },
-    sku: { x: 30, y: 215, w: 540, maxLines: 1, fontSizes: [36, 30, 24] }
+    barcode: { x: 75, y: 20, module: 2, ratio: 3, height: 120 },
+    sku: { x: 30, y: 160, w: 540, maxLines: 1, fontSizes: [36, 30, 24] }
   },
   '3x2-300': {
     stock: '3x2', dpi: 300, pw: 900, ll: 600,
@@ -1113,7 +1113,7 @@ function generateZPL(sku, description, stock, dpi, copies) {
     const barcodeWidth = (11 * (cleanSku.length + 3) + 2) * module;
     const centerX = Math.max(20, Math.round((profile.pw - barcodeWidth) / 2));
     // Scale height proportionally if module shrunk
-    const height = bc.height;
+    const height = module < bc.module ? Math.round(bc.height * (module / bc.module)) : bc.height;
 
     lines.push(`^BY${module},${bc.ratio},${height}`);
     lines.push(`^FO${centerX},${bc.y}`);
@@ -1277,6 +1277,73 @@ app.put('/api/db/printer-preferences', async (req, res) => {
   }
 });
 
+// ── PRINTERS: Enterprise-wide printer management ─────────────────────
+
+app.get('/api/db/printers', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM printers WHERE active = true ORDER BY is_default DESC, name');
+    res.json({ success: true, printers: result.rows });
+  } catch (err) {
+    console.error('[Printers Get Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/db/printers', async (req, res) => {
+  const { name, ip, port, brand, lang, size, dpi, location } = req.body;
+  if (!name || !ip) return res.status(400).json({ error: 'name and ip required' });
+  try {
+    const result = await pool.query(
+      `INSERT INTO printers (name, ip, port, brand, lang, size, dpi, location)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [name, ip, port || '9100', brand || 'Zebra', lang || 'ZPL', size || '2x1', parseInt(dpi) || 300, location || null]
+    );
+    res.json({ success: true, printer: result.rows[0] });
+  } catch (err) {
+    console.error('[Printers Add Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/db/printers/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, ip, port, brand, lang, size, dpi, location, active } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE printers SET
+        name = COALESCE($1, name), ip = COALESCE($2, ip), port = COALESCE($3, port),
+        brand = COALESCE($4, brand), lang = COALESCE($5, lang), size = COALESCE($6, size),
+        dpi = COALESCE($7, dpi), location = COALESCE($8, location), active = COALESCE($9, active)
+       WHERE id = $10 RETURNING *`,
+      [name, ip, port, brand, lang, size, dpi ? parseInt(dpi) : null, location, active, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Printer not found' });
+    res.json({ success: true, printer: result.rows[0] });
+  } catch (err) {
+    console.error('[Printers Update Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/db/printers/:id', async (req, res) => {
+  try {
+    await pool.query('UPDATE printers SET active = false WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/db/printers/:id/default', async (req, res) => {
+  try {
+    await pool.query('UPDATE printers SET is_default = false WHERE is_default = true');
+    await pool.query('UPDATE printers SET is_default = true WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── PRINT JOB: Create + generate ZPL ─────────────────────────────────
 
 app.post('/api/labels/print-job', async (req, res) => {
@@ -1289,8 +1356,17 @@ app.post('/api/labels/print-job', async (req, res) => {
     return res.status(400).json({ error: 'sku is required' });
   }
 
-  const resolvedStock = stock || process.env.DEFAULT_LABEL_STOCK || '3x2';
-  const resolvedDpi = parseInt(dpi) || parseInt(process.env.DEFAULT_LABEL_DPI) || 300;
+  // Look up default printer settings if stock/dpi not specified
+  let defaultPrinter = null;
+  if (!stock || !dpi) {
+    try {
+      const dpRes = await pool.query('SELECT size, dpi FROM printers WHERE is_default = true AND active = true LIMIT 1');
+      if (dpRes.rows.length > 0) defaultPrinter = dpRes.rows[0];
+    } catch(e) {}
+  }
+
+  const resolvedStock = stock || (defaultPrinter?.size) || process.env.DEFAULT_LABEL_STOCK || '3x2';
+  const resolvedDpi = parseInt(dpi) || (defaultPrinter?.dpi) || parseInt(process.env.DEFAULT_LABEL_DPI) || 300;
   const resolvedMethod = print_method || process.env.DEFAULT_PRINT_METHOD || 'direct_thermal';
   const resolvedCopies = parseInt(copies) || 1;
   const printMode = process.env.PRINT_MODE || 'hybrid';

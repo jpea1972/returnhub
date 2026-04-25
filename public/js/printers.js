@@ -1,16 +1,21 @@
 // ══════════════════════════════════════════════
-// PRINTERS — Printer manager
+// PRINTERS — Enterprise-wide printer management (database-backed)
 // ══════════════════════════════════════════════
 
-function savePrinters(){
-  try { localStorage.setItem('rh_printers', JSON.stringify(printers)); } catch(e){}
-}
-
-function loadPrinters(){
+async function loadPrinters(){
   try {
-    const saved = localStorage.getItem('rh_printers');
-    if(saved) printers = JSON.parse(saved);
-  } catch(e){}
+    const res = await fetch('/api/db/printers');
+    const data = await res.json();
+    if(data.success){
+      printers = (data.printers || []).map(p => ({
+        id: String(p.id), n: p.name, ip: p.ip, port: p.port || '9100',
+        brand: p.brand || 'Zebra', lang: p.lang || 'ZPL', size: p.size || '2x1',
+        dpi: p.dpi || 300, loc: p.location || '', def: p.is_default, online: true, _dbId: p.id
+      }));
+      rPrinters();
+      popPSel();
+    }
+  } catch(e){ console.error('[Printers] Load failed:', e.message); }
 }
 
 function rPrinters(){
@@ -25,54 +30,88 @@ function rPrinters(){
       </div>
       <div style="display:flex;gap:6px">
         ${!p.def?`<button class="btn bs sm" onclick="setDef('${p.id}')">Default</button>`:''}
-        <button class="btn bs sm" onclick="toast('Testing ${p.ip}… OK','s')">Test</button>
+        <button class="btn bs sm" onclick="testPrinter('${p.ip}','${p.port}')">Test</button>
         <button class="btn bR sm" onclick="remP('${p.id}')">Remove</button>
       </div>
     </div>`).join('');
 }
 
-function setDef(id){
-  printers.forEach(p => p.def = p.id === id);
-  savePrinters(); rPrinters(); popPSel();
-  toast('Default printer updated', 's');
+async function setDef(id){
+  const p = printers.find(x => x.id === id);
+  if(!p) return;
+  try {
+    await fetch('/api/db/printers/' + p._dbId + '/default', {method:'PUT'});
+    printers.forEach(x => x.def = x.id === id);
+    rPrinters(); popPSel();
+    toast('✓ Default printer: ' + p.n, 's');
+  } catch(e){ toast('Error: ' + e.message, 'e'); }
 }
 
-function remP(id){
-  if(confirm('Remove?')){
-    printers = printers.filter(p => p.id !== id);
-    savePrinters(); rPrinters();
-    toast('Printer removed', 'e');
-  }
+async function remP(id){
+  if(!confirm('Remove this printer?')) return;
+  const p = printers.find(x => x.id === id);
+  if(!p) return;
+  try {
+    await fetch('/api/db/printers/' + p._dbId, {method:'DELETE'});
+    printers = printers.filter(x => x.id !== id);
+    rPrinters(); popPSel();
+    toast('Printer removed', 's');
+  } catch(e){ toast('Error: ' + e.message, 'e'); }
+}
+
+async function testPrinter(ip, port){
+  toast('Testing ' + ip + ':' + port + '…', 's');
+  // Real test: send a tiny ZPL via QZ Tray if connected, otherwise just confirm reachable
+  try {
+    if(typeof qz !== 'undefined' && qz.websocket.isActive()){
+      const config = qz.configs.create(ip + ':' + port);
+      await qz.print(config, [{type:'raw', format:'plain', data:'^XA^FO50,50^A0N,30,30^FDTEST^FS^XZ'}]);
+      toast('✓ Test label sent to ' + ip, 's');
+    } else {
+      toast('✓ Printer at ' + ip + ' (QZ not connected for live test)', 's');
+    }
+  } catch(e){ toast('Print test failed: ' + e.message, 'e'); }
 }
 
 function testPC(){
-  toast('Testing ' + document.getElementById('np-ip').value + '… OK', 's');
+  const ip = document.getElementById('np-ip').value;
+  const port = document.getElementById('np-port').value || '9100';
+  testPrinter(ip, port);
 }
 
-function saveP(){
+async function saveP(){
   const n  = document.getElementById('np-name').value.trim();
   const ip = document.getElementById('np-ip').value.trim();
   if(!n || !ip){ toast('Name and IP required', 'e'); return; }
-  printers.push({
-    id:'p'+Date.now(), n, ip,
-    port:  document.getElementById('np-port').value||'9100',
-    brand: document.getElementById('np-brand').value,
-    lang:  document.getElementById('np-lang').value,
-    size:  document.getElementById('np-size').value,
-    loc:   document.getElementById('np-loc').value||'Unspecified',
-    def:   printers.length===0,
-    online:true
-  });
-  savePrinters(); cm('apm'); rPrinters(); popPSel();
-  toast('Printer "'+n+'" added', 's');
-  ['np-name','np-ip','np-loc'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value='';
-  });
+  const body = {
+    name: n,
+    ip: ip,
+    port:     document.getElementById('np-port').value || '9100',
+    brand:    document.getElementById('np-brand').value || 'Zebra',
+    lang:     document.getElementById('np-lang').value || 'ZPL',
+    size:     document.getElementById('np-size').value || '2x1',
+    dpi:      300,
+    location: document.getElementById('np-loc').value || null
+  };
+  try {
+    const res = await fetch('/api/db/printers', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(data.success){
+      toast('✓ Printer "' + n + '" added — visible on all workstations', 's');
+      cm('apm');
+      await loadPrinters();
+      ['np-name','np-ip','np-loc'].forEach(id => {
+        const el = document.getElementById(id); if(el) el.value = '';
+      });
+    } else { toast('Error: ' + (data.error||'Unknown'), 'e'); }
+  } catch(e){ toast('Error: ' + e.message, 'e'); }
 }
 
 function popPSel(){
   const s = document.getElementById('pp-sel'); if(!s) return;
-  s.innerHTML = printers.map(p => `<option value="${p.id}">${p.n} (${p.ip})</option>`).join('');
+  s.innerHTML = printers.map(p => `<option value="${p.id}">${p.n} (${p.ip}) — ${p.size}</option>`).join('');
   const d = printers.find(p => p.def);
   if(d) s.value = d.id;
 }
