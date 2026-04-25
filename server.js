@@ -1006,9 +1006,9 @@ const STOCK_PROFILES = {
     printMethod: 'direct_thermal',
     includeMD: null, includePR: null,
     desc: null,
-    barcode: { x: 70, y: 8, module: 1, ratio: 3, height: 170, mode: 'A' },
-    sku: { x: 20, y: 215, w: 560, maxLines: 1, fontSizes: [26, 24, 22] },
-    notes: 'Module 1 required — long apparel SKUs do not fit module 2 on 2-inch width'
+    barcode: { x: 112, y: 18, module: 1, ratio: 3, height: 150, mode: 'A' },
+    sku: { x: 24, y: 205, w: 552, maxLines: 1, fontSizes: [24, 22, 20] },
+    notes: 'True 2x1. Module 1 for long apparel SKUs. Barcode 150h leaves room for text.'
   },
   '2x1.25-300': {
     stock: '2x1.25', dpi: 300, pw: 600, ll: 375,
@@ -1024,9 +1024,9 @@ const STOCK_PROFILES = {
     printMethod: 'direct_thermal',
     includeMD: null, includePR: null,
     desc: null,
-    barcode: { x: 150, y: 35, module: 2, ratio: 3, height: 250, mode: 'A' },
-    sku: { x: 40, y: 360, w: 820, maxLines: 1, fontSizes: [42, 38, 34] },
-    notes: 'Module 2 preferred — enough width, better scan margin, cleaner look'
+    barcode: { x: 125, y: 55, module: 2, ratio: 3, height: 170, mode: 'A' },
+    sku: { x: 60, y: 265, w: 780, maxLines: 1, fontSizes: [36, 34, 30] },
+    notes: 'Module 2 — cleaner look, better scan margin, larger text'
   },
   '4x2-300': {
     stock: '4x2', dpi: 300, pw: 1200, ll: 600,
