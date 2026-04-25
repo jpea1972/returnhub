@@ -1000,16 +1000,35 @@ app.get('/api/db/health', async (req, res) => {
 // ── ZPL LABEL ENGINE ──────────────────────────────────────────────────
 
 const STOCK_PROFILES = {
-  // ── 300 DPI profiles ──────────────────────────────────────────
+  // ── 2x1 PROFILE FAMILY (300 DPI) — auto-selected by SKU length ────
   '2x1-300': {
     stock: '2x1', dpi: 300, pw: 600, ll: 300,
     printMethod: 'direct_thermal',
     includeMD: null, includePR: null,
     desc: null,
-    barcode: { x: 112, y: 18, module: 1, ratio: 3, height: 150, mode: 'A' },
-    sku: { x: 24, y: 205, w: 552, maxLines: 1, fontSizes: [24, 22, 20] },
-    notes: 'True 2x1. Module 1 for long apparel SKUs. Barcode 150h leaves room for text.'
+    barcode: { x: 110, y: 15, module: 1, ratio: 3, height: 145, mode: 'A' },
+    sku: { x: 20, y: 205, w: 560, maxLines: 1, fontSizes: [24, 22, 20] },
+    notes: 'Standard 2x1. One-line text preferred.'
   },
+  '2x1-long-300': {
+    stock: '2x1', dpi: 300, pw: 600, ll: 300,
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 110, y: 15, module: 1, ratio: 3, height: 130, mode: 'A' },
+    sku: { x: 20, y: 190, w: 560, maxLines: 1, fontSizes: [20, 18] },
+    notes: 'Long-SKU 2x1. Shorter barcode, smaller font, still one line.'
+  },
+  '2x1-xlong-300': {
+    stock: '2x1', dpi: 300, pw: 600, ll: 300,
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 110, y: 12, module: 1, ratio: 3, height: 120, mode: 'A' },
+    sku: { x: 20, y: 168, w: 560, maxLines: 2, fontSizes: [18, 16] },
+    notes: 'Extra-long 2x1. Two centered visible lines. Barcode keeps full SKU.'
+  },
+  // ── 2x1.25 LEGACY (300 DPI) — diagnostic only ────────────────────
   '2x1.25-300': {
     stock: '2x1.25', dpi: 300, pw: 600, ll: 375,
     printMethod: 'direct_thermal',
@@ -1017,17 +1036,19 @@ const STOCK_PROFILES = {
     desc: null,
     barcode: { x: 110, y: 10, module: 1, ratio: 3, height: 220, mode: 'A' },
     sku: { x: 20, y: 270, w: 560, maxLines: 1, fontSizes: [30, 28, 26] },
-    notes: 'Legacy 2x1.25 diagnostic profile — use only if physical stock is actually 2x1.25'
+    notes: 'Legacy 2x1.25 diagnostic profile only.'
   },
+  // ── 3x2 (300 DPI) ────────────────────────────────────────────────
   '3x2-300': {
     stock: '3x2', dpi: 300, pw: 900, ll: 600,
     printMethod: 'direct_thermal',
     includeMD: null, includePR: null,
     desc: null,
-    barcode: { x: 125, y: 55, module: 2, ratio: 3, height: 170, mode: 'A' },
-    sku: { x: 60, y: 265, w: 780, maxLines: 1, fontSizes: [36, 34, 30] },
+    barcode: { x: 150, y: 35, module: 2, ratio: 3, height: 250, mode: 'A' },
+    sku: { x: 40, y: 360, w: 820, maxLines: 1, fontSizes: [42, 38, 34] },
     notes: 'Module 2 — cleaner look, better scan margin, larger text'
   },
+  // ── 4x2 (300 DPI) ────────────────────────────────────────────────
   '4x2-300': {
     stock: '4x2', dpi: 300, pw: 1200, ll: 600,
     printMethod: 'direct_thermal',
@@ -1035,8 +1056,8 @@ const STOCK_PROFILES = {
     desc: null,
     barcode: { x: 315, y: 30, module: 3, ratio: 3, height: 250, mode: 'A' },
     sku: { x: 60, y: 360, w: 1080, maxLines: 1, fontSizes: [42, 38, 34] },
-    notes: 'Wide format — module 3 for large scannable barcode'
   },
+  // ── 4x3 (300 DPI) ────────────────────────────────────────────────
   '4x3-300': {
     stock: '4x3', dpi: 300, pw: 1200, ll: 900,
     printMethod: 'direct_thermal',
@@ -1044,8 +1065,8 @@ const STOCK_PROFILES = {
     desc: null,
     barcode: { x: 265, y: 40, module: 3, ratio: 3, height: 300, mode: 'A' },
     sku: { x: 60, y: 400, w: 1080, maxLines: 1, fontSizes: [48, 42, 36] },
-    notes: 'Large format'
   },
+  // ── 4x6 (300 DPI) ────────────────────────────────────────────────
   '4x6-300': {
     stock: '4x6', dpi: 300, pw: 1200, ll: 1800,
     printMethod: 'direct_thermal',
@@ -1053,16 +1074,15 @@ const STOCK_PROFILES = {
     desc: null,
     barcode: { x: 215, y: 60, module: 4, ratio: 3, height: 400, mode: 'A' },
     sku: { x: 60, y: 520, w: 1080, maxLines: 1, fontSizes: [52, 46, 40] },
-    notes: 'Full-size shipping label format'
   },
-  // ── 203 DPI profiles ──────────────────────────────────────────
+  // ── 203 DPI profiles ──────────────────────────────────────────────
   '2x1-203': {
     stock: '2x1', dpi: 203, pw: 406, ll: 203,
     printMethod: 'direct_thermal',
     includeMD: null, includePR: null,
     desc: null,
-    barcode: { x: 48, y: 5, module: 1, ratio: 3, height: 115, mode: 'A' },
-    sku: { x: 14, y: 145, w: 378, maxLines: 1, fontSizes: [18, 16, 14] },
+    barcode: { x: 74, y: 10, module: 1, ratio: 3, height: 98, mode: 'A' },
+    sku: { x: 14, y: 138, w: 378, maxLines: 1, fontSizes: [16, 15, 14] },
   },
   '3x2-203': {
     stock: '3x2', dpi: 203, pw: 610, ll: 406,
@@ -1098,7 +1118,17 @@ const STOCK_PROFILES = {
   },
 };
 
-function resolveStockProfile(stock, dpi) {
+// Resolve profile: for 2x1, auto-select standard/long/xlong based on SKU length
+function resolveStockProfile(stock, dpi, skuLength) {
+  if (stock === '2x1' && dpi === 300 && skuLength) {
+    const stdProfile = STOCK_PROFILES['2x1-300'];
+    const stdFits = skuLength * 0.58 * stdProfile.sku.fontSizes[stdProfile.sku.fontSizes.length - 1] <= stdProfile.sku.w;
+    if (stdFits) return stdProfile;
+    const longProfile = STOCK_PROFILES['2x1-long-300'];
+    const longFits = skuLength * 0.58 * longProfile.sku.fontSizes[longProfile.sku.fontSizes.length - 1] <= longProfile.sku.w;
+    if (longFits) return longProfile;
+    return STOCK_PROFILES['2x1-xlong-300'];
+  }
   const key = `${stock}-${dpi}`;
   return STOCK_PROFILES[key] || STOCK_PROFILES['3x2-300'];
 }
@@ -1119,9 +1149,32 @@ function fitText(text, maxWidth, fontSizes) {
   return { text: clean.substring(0, maxChars) + '...', fontSize: smallest };
 }
 
+// Delimiter-aware two-line wrap for extra-long SKUs
+function wrapSkuTwoLines(sku, maxWidth, fontSize) {
+  const delimiters = ['-', '_', '/'];
+  const halfTarget = Math.ceil(sku.length / 2);
+  let bestSplit = -1;
+  let bestDist = sku.length;
+  for (const d of delimiters) {
+    let idx = -1;
+    while ((idx = sku.indexOf(d, idx + 1)) !== -1) {
+      const dist = Math.abs(idx - halfTarget);
+      if (dist < bestDist) { bestDist = dist; bestSplit = idx + 1; }
+    }
+  }
+  if (bestSplit > 0) {
+    const line1 = sku.substring(0, bestSplit).trim();
+    const line2 = sku.substring(bestSplit).trim();
+    const fits1 = estimateTextWidth(line1, fontSize) <= maxWidth;
+    const fits2 = estimateTextWidth(line2, fontSize) <= maxWidth;
+    if (fits1 && fits2) return line1 + '\\&' + line2;
+  }
+  return sku;
+}
+
 function generateZPL(sku, description, stock, dpi, copies) {
-  const profile = resolveStockProfile(stock, dpi);
   const cleanSku = (sku || '').replace(/[^A-Za-z0-9\-_./]/g, '').trim().substring(0, 40);
+  const profile = resolveStockProfile(stock, dpi, cleanSku.length);
   const lines = [];
 
   lines.push('^XA');
@@ -1130,17 +1183,16 @@ function generateZPL(sku, description, stock, dpi, copies) {
   lines.push(`^LL${profile.ll}`);
   lines.push('^LH0,0');
 
-  // Optional per-profile darkness adjustment (default: none)
+  // Optional per-profile darkness (default: none)
   if (profile.includeMD != null) {
     lines.push(`^MD${profile.includeMD}`);
   }
-
-  // Optional per-profile speed adjustment (default: none)
+  // Optional per-profile speed (default: none)
   if (profile.includePR != null) {
     lines.push(`^PR${profile.includePR}`);
   }
 
-  // 1. Barcode — Code 128, mode from profile
+  // 1. Barcode — Code 128, full SKU always
   if (cleanSku) {
     const bc = profile.barcode;
     const mode = bc.mode || 'N';
@@ -1150,14 +1202,35 @@ function generateZPL(sku, description, stock, dpi, copies) {
     lines.push(`^FD${cleanSku}^FS`);
   }
 
-  // 2. Human-readable SKU text — centered, single line, font ladder
+  // 2. Human-readable SKU text — centered, font ladder
   if (cleanSku && profile.sku) {
     const s = profile.sku;
-    const fitted = fitText(cleanSku, s.w, s.fontSizes);
-    lines.push(`^FO${s.x},${s.y}`);
-    lines.push(`^A0N,${fitted.fontSize},${fitted.fontSize}`);
-    lines.push(`^FB${s.w},${s.maxLines || 1},0,C,0`);
-    lines.push(`^FD${fitted.text}^FS`);
+    const maxLines = s.maxLines || 1;
+
+    if (maxLines >= 2) {
+      // Extra-long profile: try delimiter-aware two-line wrap
+      const fontSize = s.fontSizes[0];
+      const oneLine = estimateTextWidth(cleanSku, fontSize) <= s.w;
+      if (oneLine) {
+        lines.push(`^FO${s.x},${s.y}`);
+        lines.push(`^A0N,${fontSize},${fontSize}`);
+        lines.push(`^FB${s.w},1,0,C,0`);
+        lines.push(`^FD${cleanSku}^FS`);
+      } else {
+        const wrapped = wrapSkuTwoLines(cleanSku, s.w, fontSize);
+        lines.push(`^FO${s.x},${s.y}`);
+        lines.push(`^A0N,${fontSize},${fontSize}`);
+        lines.push(`^FB${s.w},2,2,C,0`);
+        lines.push(`^FD${wrapped}^FS`);
+      }
+    } else {
+      // Standard / long-SKU: single line with font ladder
+      const fitted = fitText(cleanSku, s.w, s.fontSizes);
+      lines.push(`^FO${s.x},${s.y}`);
+      lines.push(`^A0N,${fitted.fontSize},${fitted.fontSize}`);
+      lines.push(`^FB${s.w},1,0,C,0`);
+      lines.push(`^FD${fitted.text}^FS`);
+    }
   }
 
   // Copies
@@ -1474,12 +1547,12 @@ app.post('/api/labels/preview', (req, res) => {
   if (!sku) {
     return res.status(400).json({ error: 'sku is required' });
   }
-  const zpl = generateZPL(sku, description, stock || '3x2', dpi || 300, 1);
-  // Return ZPL as text — frontend renders preview via CSS or Labelary
+  const cleanSku = (sku || '').replace(/[^A-Za-z0-9\-_./]/g, '').trim();
+  const zpl = generateZPL(sku, description, stock || '2x1', dpi || 300, 1);
   res.json({
     success: true,
     zpl,
-    profile: resolveStockProfile(stock || '3x2', dpi || 300),
+    profile: resolveStockProfile(stock || '2x1', dpi || 300, cleanSku.length),
   });
 });
 
