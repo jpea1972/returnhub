@@ -1004,8 +1004,8 @@ const STOCK_PROFILES = {
   '2x1-300': {
     stock: '2x1', dpi: 300, pw: 600, ll: 300,
     desc: null, // no room for description on 2x1
-    barcode: { x: 75, y: 20, module: 2, ratio: 3, height: 120 },
-    sku: { x: 30, y: 160, w: 540, maxLines: 1, fontSizes: [36, 30, 24] }
+    barcode: { x: 75, y: 10, module: 2, ratio: 3, height: 190 },
+    sku: { x: 30, y: 215, w: 540, maxLines: 1, fontSizes: [36, 30, 24] }
   },
   '3x2-300': {
     stock: '3x2', dpi: 300, pw: 900, ll: 600,
