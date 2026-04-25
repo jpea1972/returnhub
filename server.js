@@ -1000,67 +1000,101 @@ app.get('/api/db/health', async (req, res) => {
 // ── ZPL LABEL ENGINE ──────────────────────────────────────────────────
 
 const STOCK_PROFILES = {
-  // 300 DPI profiles
+  // ── 300 DPI profiles ──────────────────────────────────────────
   '2x1-300': {
-    stock: '2x1', dpi: 300, pw: 600, ll: 375,
-    desc: null, // no room for description on 2x1
-    barcode: { x: 75, y: 10, module: 2, ratio: 3, height: 240 },
-    sku: { x: 30, y: 280, w: 540, maxLines: 1, fontSizes: [36, 30, 24] }
+    stock: '2x1', dpi: 300, pw: 600, ll: 300,
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 70, y: 8, module: 1, ratio: 3, height: 170, mode: 'A' },
+    sku: { x: 20, y: 215, w: 560, maxLines: 1, fontSizes: [26, 24, 22] },
+    notes: 'Module 1 required — long apparel SKUs do not fit module 2 on 2-inch width'
+  },
+  '2x1.25-300': {
+    stock: '2x1.25', dpi: 300, pw: 600, ll: 375,
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 110, y: 10, module: 1, ratio: 3, height: 220, mode: 'A' },
+    sku: { x: 20, y: 270, w: 560, maxLines: 1, fontSizes: [30, 28, 26] },
+    notes: 'Legacy 2x1.25 diagnostic profile — use only if physical stock is actually 2x1.25'
   },
   '3x2-300': {
     stock: '3x2', dpi: 300, pw: 900, ll: 600,
-    barcode: { x: 165, y: 30, module: 3, ratio: 3, height: 150 },
-    sku: { x: 60, y: 200, w: 780, maxLines: 1, lineGap: 0, fontSizes: [42, 36, 30] },
-    desc: { x: 60, y: 280, w: 780, maxLines: 3, lineGap: 6, fontSizes: [36, 30, 26, 22, 18] }
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 150, y: 35, module: 2, ratio: 3, height: 250, mode: 'A' },
+    sku: { x: 40, y: 360, w: 820, maxLines: 1, fontSizes: [42, 38, 34] },
+    notes: 'Module 2 preferred — enough width, better scan margin, cleaner look'
   },
   '4x2-300': {
     stock: '4x2', dpi: 300, pw: 1200, ll: 600,
-    barcode: { x: 315, y: 30, module: 3, ratio: 3, height: 150 },
-    sku: { x: 60, y: 200, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [42, 36, 30] },
-    desc: { x: 60, y: 280, w: 1080, maxLines: 3, lineGap: 6, fontSizes: [36, 30, 26, 22] }
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 315, y: 30, module: 3, ratio: 3, height: 250, mode: 'A' },
+    sku: { x: 60, y: 360, w: 1080, maxLines: 1, fontSizes: [42, 38, 34] },
+    notes: 'Wide format — module 3 for large scannable barcode'
   },
   '4x3-300': {
     stock: '4x3', dpi: 300, pw: 1200, ll: 900,
-    barcode: { x: 265, y: 40, module: 3, ratio: 3, height: 200 },
-    sku: { x: 60, y: 270, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [48, 42, 36] },
-    desc: { x: 60, y: 380, w: 1080, maxLines: 4, lineGap: 6, fontSizes: [42, 36, 30, 26] }
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 265, y: 40, module: 3, ratio: 3, height: 300, mode: 'A' },
+    sku: { x: 60, y: 400, w: 1080, maxLines: 1, fontSizes: [48, 42, 36] },
+    notes: 'Large format'
   },
   '4x6-300': {
     stock: '4x6', dpi: 300, pw: 1200, ll: 1800,
-    barcode: { x: 215, y: 60, module: 4, ratio: 3, height: 280 },
-    sku: { x: 60, y: 380, w: 1080, maxLines: 1, lineGap: 0, fontSizes: [52, 46, 40] },
-    desc: { x: 60, y: 500, w: 1080, maxLines: 4, lineGap: 8, fontSizes: [42, 36, 30, 26] }
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 215, y: 60, module: 4, ratio: 3, height: 400, mode: 'A' },
+    sku: { x: 60, y: 520, w: 1080, maxLines: 1, fontSizes: [52, 46, 40] },
+    notes: 'Full-size shipping label format'
   },
-  // 203 DPI profiles
+  // ── 203 DPI profiles ──────────────────────────────────────────
   '2x1-203': {
     stock: '2x1', dpi: 203, pw: 406, ll: 203,
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
     desc: null,
-    barcode: { x: 50, y: 14, module: 2, ratio: 3, height: 80 },
-    sku: { x: 20, y: 108, w: 366, maxLines: 1, fontSizes: [24, 20, 18] }
+    barcode: { x: 48, y: 5, module: 1, ratio: 3, height: 115, mode: 'A' },
+    sku: { x: 14, y: 145, w: 378, maxLines: 1, fontSizes: [18, 16, 14] },
   },
   '3x2-203': {
     stock: '3x2', dpi: 203, pw: 610, ll: 406,
-    barcode: { x: 110, y: 20, module: 2, ratio: 3, height: 100 },
-    sku: { x: 40, y: 135, w: 530, maxLines: 1, lineGap: 0, fontSizes: [28, 24, 20] },
-    desc: { x: 40, y: 190, w: 530, maxLines: 3, lineGap: 4, fontSizes: [24, 20, 18, 16] }
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 100, y: 24, module: 2, ratio: 3, height: 170, mode: 'A' },
+    sku: { x: 28, y: 244, w: 554, maxLines: 1, fontSizes: [28, 26, 24] },
   },
   '4x2-203': {
     stock: '4x2', dpi: 203, pw: 812, ll: 406,
-    barcode: { x: 210, y: 20, module: 2, ratio: 3, height: 100 },
-    sku: { x: 40, y: 135, w: 732, maxLines: 1, lineGap: 0, fontSizes: [28, 24, 20] },
-    desc: { x: 40, y: 190, w: 732, maxLines: 3, lineGap: 4, fontSizes: [24, 20, 18, 16] }
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 210, y: 20, module: 2, ratio: 3, height: 170, mode: 'A' },
+    sku: { x: 40, y: 244, w: 732, maxLines: 1, fontSizes: [28, 26, 24] },
   },
   '4x3-203': {
     stock: '4x3', dpi: 203, pw: 812, ll: 609,
-    barcode: { x: 180, y: 28, module: 2, ratio: 3, height: 140 },
-    sku: { x: 40, y: 184, w: 732, maxLines: 1, lineGap: 0, fontSizes: [32, 28, 24] },
-    desc: { x: 40, y: 256, w: 732, maxLines: 4, lineGap: 4, fontSizes: [26, 22, 20, 18] }
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 180, y: 28, module: 2, ratio: 3, height: 200, mode: 'A' },
+    sku: { x: 40, y: 280, w: 732, maxLines: 1, fontSizes: [32, 28, 24] },
   },
   '4x6-203': {
     stock: '4x6', dpi: 203, pw: 812, ll: 1218,
-    barcode: { x: 146, y: 40, module: 3, ratio: 3, height: 190 },
-    sku: { x: 40, y: 260, w: 732, maxLines: 1, lineGap: 0, fontSizes: [34, 30, 26] },
-    desc: { x: 40, y: 340, w: 732, maxLines: 4, lineGap: 6, fontSizes: [28, 24, 20, 18] }
+    printMethod: 'direct_thermal',
+    includeMD: null, includePR: null,
+    desc: null,
+    barcode: { x: 146, y: 40, module: 3, ratio: 3, height: 280, mode: 'A' },
+    sku: { x: 40, y: 370, w: 732, maxLines: 1, fontSizes: [34, 30, 26] },
   },
 };
 
@@ -1070,8 +1104,7 @@ function resolveStockProfile(stock, dpi) {
 }
 
 function estimateTextWidth(text, fontSize) {
-  // ZPL A0 font: approximate character width ≈ fontSize * 0.6
-  return text.length * fontSize * 0.6;
+  return text.length * fontSize * 0.58;
 }
 
 function fitText(text, maxWidth, fontSizes) {
@@ -1081,15 +1114,14 @@ function fitText(text, maxWidth, fontSizes) {
       return { text: clean, fontSize: size };
     }
   }
-  // Truncate with ellipsis at smallest font
   const smallest = fontSizes[fontSizes.length - 1];
-  const maxChars = Math.floor(maxWidth / (smallest * 0.6)) - 3;
+  const maxChars = Math.floor(maxWidth / (smallest * 0.58)) - 3;
   return { text: clean.substring(0, maxChars) + '...', fontSize: smallest };
 }
 
 function generateZPL(sku, description, stock, dpi, copies) {
   const profile = resolveStockProfile(stock, dpi);
-  const cleanSku = (sku || '').replace(/[^A-Z0-9\-\/\.]/gi, '').substring(0, 40);
+  const cleanSku = (sku || '').replace(/[^A-Za-z0-9\-_./]/g, '').trim().substring(0, 40);
   const lines = [];
 
   lines.push('^XA');
@@ -1098,56 +1130,34 @@ function generateZPL(sku, description, stock, dpi, copies) {
   lines.push(`^LL${profile.ll}`);
   lines.push('^LH0,0');
 
-  // 1. Barcode zone (Code 128) — TOP, auto-sized and centered
+  // Optional per-profile darkness adjustment (default: none)
+  if (profile.includeMD != null) {
+    lines.push(`^MD${profile.includeMD}`);
+  }
+
+  // Optional per-profile speed adjustment (default: none)
+  if (profile.includePR != null) {
+    lines.push(`^PR${profile.includePR}`);
+  }
+
+  // 1. Barcode — Code 128, mode from profile
   if (cleanSku) {
     const bc = profile.barcode;
-    // Code 128 width ≈ (11 * (chars + 3) + 2) * module
-    // Auto-select module width to fit within label width with margins
-    const availWidth = profile.pw - 40; // 20px margin each side
-    let module = bc.module;
-    for (let m = bc.module; m >= 1; m--) {
-      const barcodeWidth = (11 * (cleanSku.length + 3) + 2) * m;
-      if (barcodeWidth <= availWidth) { module = m; break; }
-      module = m;
-    }
-    const barcodeWidth = (11 * (cleanSku.length + 3) + 2) * module;
-    const centerX = Math.max(20, Math.round((profile.pw - barcodeWidth) / 2));
-    // Scale height proportionally if module shrunk
-    const height = module < bc.module ? Math.round(bc.height * (module / bc.module)) : bc.height;
-
-    lines.push(`^BY${module},${bc.ratio},${height}`);
-    lines.push(`^FO${centerX},${bc.y}`);
-    lines.push(`^BCN,${height},N,N,N`);
+    const mode = bc.mode || 'N';
+    lines.push(`^BY${bc.module},${bc.ratio},${bc.height}`);
+    lines.push(`^FO${bc.x},${bc.y}`);
+    lines.push(`^BCN,${bc.height},N,N,N,${mode}`);
     lines.push(`^FD${cleanSku}^FS`);
   }
 
-  // 2. Human-readable SKU — BELOW BARCODE, centered
+  // 2. Human-readable SKU text — centered, single line, font ladder
   if (cleanSku && profile.sku) {
     const s = profile.sku;
     const fitted = fitText(cleanSku, s.w, s.fontSizes);
     lines.push(`^FO${s.x},${s.y}`);
     lines.push(`^A0N,${fitted.fontSize},${fitted.fontSize}`);
-    lines.push(`^FB${s.w},${s.maxLines},${s.lineGap || 0},C,0`);
+    lines.push(`^FB${s.w},${s.maxLines || 1},0,C,0`);
     lines.push(`^FD${fitted.text}^FS`);
-  }
-
-  // 3. Description — BOTTOM (full text, wraps with ^FB, font ladder scales down to fit)
-  if (profile.desc && description) {
-    const d = profile.desc;
-    const cleanDesc = (description || '').replace(/[<>&"]/g, ' ').trim();
-    let chosenSize = d.fontSizes[d.fontSizes.length - 1];
-    for (const size of d.fontSizes) {
-      const charsPerLine = Math.floor(d.w / (size * 0.6));
-      const linesNeeded = Math.ceil(cleanDesc.length / charsPerLine);
-      if (linesNeeded <= d.maxLines) {
-        chosenSize = size;
-        break;
-      }
-    }
-    lines.push(`^FO${d.x},${d.y}`);
-    lines.push(`^A0N,${chosenSize},${chosenSize}`);
-    lines.push(`^FB${d.w},${d.maxLines},${d.lineGap || 0},C,0`);
-    lines.push(`^FD${cleanDesc}^FS`);
   }
 
   // Copies
