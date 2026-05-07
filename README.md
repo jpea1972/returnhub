@@ -1,192 +1,60 @@
-# ReturnHub — Deployment Guide
-**Returns logistics dashboard for Paragonfitwear**
+# ReturnHub
 
----
+Multi-merchant warehouse returns management platform for Foreign Trade Zone (FTZ) operations.
 
-## What's in this package
+## Production
 
-```
-returnhub/
-├── server.js          ← Express server (API proxy + label printing)
-├── package.json       ← Node.js dependencies
-├── .env.example       ← Copy this to .env and add your token
-├── .gitignore         ← Keeps .env out of Git
-└── public/
-    └── index.html     ← The complete ReturnHub dashboard
-```
+- **Live URL:** https://returnhub-production.up.railway.app
+- **GitHub:** https://github.com/jpea1972/returnhub
+- **Hosting:** Railway (project: gracious-charisma)
+- **Database:** PostgreSQL on Railway (17 tables)
+- **Branch:** `main` — auto-deploys on push (~60 seconds)
 
----
+## Main Files
 
-## STEP 1 — Install Node.js (if you don't have it)
+- `server.js` — Express backend (~2,500 lines)
+- `public/index.html` — Single HTML shell
+- `public/js/*.js` — 20+ frontend modules (no build step, no bundler)
+- `schema.sql` — Full database DDL
+- `/docs/` — All documentation
 
-1. Go to **https://nodejs.org**
-2. Download the **LTS** version (the green button)
-3. Run the installer — click Next through everything
-4. Open **Terminal** (Mac) or **Command Prompt** (Windows)
-5. Type `node --version` — you should see something like `v20.11.0`
+## Run Locally
 
----
-
-## STEP 2 — Set up the project
-
-1. **Unzip** this folder somewhere on your computer
-   - Example: `C:\Users\YourName\returnhub` on Windows
-   - Example: `/Users/YourName/returnhub` on Mac
-
-2. Open **Terminal / Command Prompt**
-
-3. Navigate into the folder:
-   ```
-   cd C:\Users\YourName\returnhub       (Windows)
-   cd /Users/YourName/returnhub         (Mac)
-   ```
-
-4. Install dependencies:
-   ```
-   npm install
-   ```
-   You'll see it download packages — takes about 30 seconds.
-
----
-
-## STEP 3 — Add your Return Rabbit API token
-
-1. Copy the example file:
-   ```
-   cp .env.example .env        (Mac/Linux)
-   copy .env.example .env      (Windows)
-   ```
-
-2. Open `.env` in any text editor (Notepad is fine)
-
-3. Replace `paste_your_return_rabbit_token_here` with your actual token:
-   ```
-   RR_TOKEN=your_actual_token_goes_here
-   ```
-
-4. Save the file.
-
-> **Where to get the token:**
-> Log in to Return Rabbit → Settings → API → Generate Token
-
----
-
-## STEP 4 — Run it locally (test first)
-
-```
-npm start
+```bash
+npm install
+DATABASE_URL=<your-postgres-url> RR_TOKEN=<your-token> node server.js
 ```
 
-You'll see:
+Open http://localhost:3000
+
+## Required Environment Variables
+
+See [/docs/10_ENVIRONMENT_VARIABLES.md](docs/10_ENVIRONMENT_VARIABLES.md) for full list.
+
+Key variables: `DATABASE_URL`, `RR_TOKEN`, `PORT`, `PRINT_MODE`, `QZ_ENABLED`
+
+## Integrations
+
+- **Return Rabbit** — pull-based RMA sync (Paragonfitwear)
+- **AfterShip Returns** — webhook push (WillDrop)
+- **Loop Returns** — pull-based adapter (ready, no active client)
+- **MindCloud/Datex WMS** — Good returns export via pull API with Bearer token auth
+- **QZ Tray** — browser-to-local-printer ZPL label printing
+
+## Documentation
+
+See [/docs/00_DOCS_INDEX.md](docs/00_DOCS_INDEX.md) for the full documentation index.
+
+## Emergency Rollback
+
+```bash
+git log --oneline -5          # find the last good commit
+git revert HEAD --no-edit     # revert last commit
+git push origin main          # Railway auto-deploys
 ```
-┌────────────────────────────────────────┐
-│  ReturnHub running on port 3000        │
-│  Dashboard:  http://localhost:3000     │
-│  RR Token:   ✓ Configured             │
-└────────────────────────────────────────┘
-```
-
-Open **http://localhost:3000** in your browser.
-Log in as Admin (PIN: 0000) → go to **RR Integration** → click **Test Connection**.
-
----
-
-## STEP 5 — Deploy to Railway (permanent URL, free tier)
-
-Railway gives you a permanent URL like `https://returnhub-production.up.railway.app`
-so anyone in the warehouse can access it on any device.
-
-### 5a — Create a GitHub repository
-
-1. Go to **https://github.com** and create a free account if you don't have one
-2. Click **New repository** → name it `returnhub` → click **Create**
-3. Follow the instructions to push your code:
-   ```
-   git init
-   git add .
-   git commit -m "Initial ReturnHub deploy"
-   git branch -M main
-   git remote add origin https://github.com/YOURUSERNAME/returnhub.git
-   git push -u origin main
-   ```
-
-### 5b — Deploy on Railway
-
-1. Go to **https://railway.app** and sign in with GitHub
-2. Click **New Project** → **Deploy from GitHub repo**
-3. Select your `returnhub` repository
-4. Railway will detect it's a Node.js app and deploy automatically
-
-### 5c — Add your environment variable on Railway
-
-1. In Railway, click your project → **Variables** tab
-2. Click **New Variable**
-3. Add:
-   - Name: `RR_TOKEN`
-   - Value: your Return Rabbit API token
-4. Click **Add** — Railway restarts automatically
-
-### 5d — Get your live URL
-
-1. Click **Settings** → **Domains**
-2. Click **Generate Domain** — you'll get something like:
-   `https://returnhub-production.up.railway.app`
-3. Share this URL with your warehouse team
-
----
-
-## STEP 6 — Optional: Custom domain
-
-If you want `returns.paragonfitwear.com` or `returnhub.yourcompany.com`:
-
-1. In Railway → Settings → Domains → **Custom Domain**
-2. Add your domain
-3. Railway gives you a CNAME record to add in your DNS provider
-4. Takes 5–15 minutes to go live
-
----
-
-## Daily use
-
-- Workers open the URL on any computer or tablet in the warehouse
-- Each worker selects their name and enters their PIN
-- Scan barcodes using a USB or Bluetooth barcode scanner
-- Return Rabbit data syncs automatically every 60 seconds
-- Reports email to Paragon automatically every Monday at 8 AM
-
----
-
-## Printer setup
-
-For Zebra label printers:
-1. Make sure the printer is on the same WiFi/network as the server
-2. Find the printer's IP address (print a config label from the printer)
-3. In ReturnHub → **Printer Manager** → **Add Printer** → enter the IP
-4. Click **Test** to verify
-
----
-
-## Troubleshooting
-
-**"RR_TOKEN not configured"**
-→ Check your `.env` file has `RR_TOKEN=...` with no spaces around the `=`
-→ Restart the server: `npm start`
-
-**"Cannot reach Return Rabbit API"**
-→ Your token may be expired — generate a new one in Return Rabbit
-→ Check Return Rabbit's status page
-
-**Blank page on Railway**
-→ Check Railway logs — click **Deployments** → **View Logs**
-→ Usually means a missing environment variable
-
-**Printer not responding**
-→ Confirm printer IP with a config print from the printer itself
-→ Printer must be on the same network as the server
-
----
 
 ## Support
 
-- Return Rabbit API: support@returnrabbit.com
-- ReturnHub code questions: keep this README and share with your developer
+- **Operations:** James Peacock / SKU Distribution
+- **Database:** TablePlus → Railway PostgreSQL (gracious-charisma)
+- **Logs:** Railway dashboard → Deployments → View Logs
