@@ -695,7 +695,7 @@ app.put('/api/db/flags/:id', async (req, res) => {
 // ── RETURN LINE FLAGS: Get flags for Returns Report ───────────────────
 // ?merchant_id=X filters to a specific merchant via returns join
 app.get('/api/db/flags', async (req, res) => {
-  const { condition, date_from, date_to, merchant_id, q, limit = 500, offset = 0 } = req.query;
+  const { condition, date_from, date_to, merchant_id, q, limit, offset = 0 } = req.query;
   try {
     let where = ['1=1'];
     let params = [];
@@ -714,8 +714,12 @@ app.get('/api/db/flags', async (req, res) => {
       params.push(`%${q.replace(/^@/, '')}%`);
       i++;
     }
-    params.push(parseInt(limit));
-    params.push(parseInt(offset));
+    let limitClause = '';
+    if (limit) {
+      params.push(parseInt(limit));
+      params.push(parseInt(offset));
+      limitClause = `LIMIT $${i} OFFSET $${i+1}`;
+    }
     const result = await pool.query(
       `SELECT
         f.id, f.order_number, f.rma_name, f.customer_name, f.reason,
@@ -728,7 +732,7 @@ app.get('/api/db/flags', async (req, res) => {
        LEFT JOIN workers w ON f.worker_id = w.id
        WHERE ${where.join(' AND ')}
        ORDER BY f.created_at DESC
-       LIMIT $${i} OFFSET $${i+1}`,
+       ${limitClause}`,
       params
     );
     res.json({ success: true, count: result.rows.length, flags: result.rows });
@@ -1809,7 +1813,7 @@ app.get('/api/db/merchants/:id/returns', async (req, res) => {
 
 // ── MERCHANTS: Flags for a merchant ───────────────────────────────────
 app.get('/api/db/merchants/:id/flags', async (req, res) => {
-  const { condition, date_from, date_to, limit = 500, offset = 0 } = req.query;
+  const { condition, date_from, date_to, limit = 5000, offset = 0 } = req.query;
   try {
     let where = ['r.merchant_id = $1'];
     let params = [req.params.id];
