@@ -333,6 +333,14 @@ app.post('/api/db/returns', async (req, res) => {
 
     await client.query('COMMIT');
     res.json({ success: true, return_id: returnId });
+
+    // ── WMS EXPORT HOOK: Create export records for Good returns ──
+    // Fire-and-forget — never blocks the return save response
+    if (condition === 'Good') {
+      createWmsExports(returnId, merchant_id || 1).catch(err => {
+        console.error('[WMS Export Hook] Failed for return', returnId, ':', err.message);
+      });
+    }
   } catch (err) {
     await client.query('ROLLBACK');
     // Handle duplicate key violation gracefully
@@ -1984,6 +1992,229 @@ app.post('/api/webhooks/aftership/:merchantId', async (req, res) => {
     console.error(`[AfterShip Webhook Error] merchant ${merchantId}:`, err.message);
     // Return 200 to prevent AfterShip from retrying endlessly
     res.json({ success: false, error: err.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// WMS GOOD RETURNS EXPORT INTEGRATION
+// One export record per Good return line item. Never aggregated.
+// MindCloud pulls via Bearer token auth, acknowledges after Datex sync.
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Create WMS export records for a Good return ─────────────────────
+// Called fire-and-forget after a Good return saves. Non-blocking.
+async function createWmsExports(returnId, merchantId) {
+  // Get line items for this return
+  const liRes = await pool.query(
+    'SELECT id, sku, quantity FROM return_line_items WHERE return_id = $1',
+    [returnId]
+  );
+  if (liRes.rows.length === 0) return;
+
+  // Get merchant owner_project
+  const mRes = await pool.query(
+    'SELECT name, settings FROM merchants WHERE id = $1',
+    [merchantId]
+  );
+  const merchant = mRes.rows[0] || {};
+  const ownerProject = merchant.settings?.wms_owner_project || merchant.name || 'ReturnHub';
+
+  const now = new Date().toISOString();
+
+  for (const li of liRes.rows) {
+    const idempotencyKey = `returnhub:good-inventory-export:${li.id}:v1`;
+
+    try {
+      await pool.query(
+        `INSERT INTO wms_return_exports
+          (return_id, return_line_item_id, sku, quantity, owner_project,
+           condition, status, idempotency_key, source_created_at, merchant_id)
+         VALUES ($1, $2, $3, $4, $5, 'Good', 'queued', $6, $7, $8)
+         ON CONFLICT (idempotency_key) DO NOTHING`,
+        [returnId, li.id, li.sku || '--', li.quantity || 1, ownerProject,
+         idempotencyKey, now, merchantId]
+      );
+    } catch (e) {
+      console.error(`[WMS Export] Failed to create export for line_item ${li.id}:`, e.message);
+    }
+  }
+  console.log(`[WMS Export] Created ${liRes.rows.length} export record(s) for return ${returnId}`);
+}
+
+// ── Bearer token auth middleware for integration endpoints ───────────
+async function authenticateIntegration(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid Authorization header. Use: Bearer {token}' });
+  }
+  const token = authHeader.substring(7);
+  try {
+    const result = await pool.query(
+      'SELECT id, name, partner, merchant_id, scopes FROM integration_tokens WHERE token = $1 AND active = true',
+      [token]
+    );
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or inactive token' });
+    }
+    const tokenRecord = result.rows[0];
+    req.integrationToken = tokenRecord;
+
+    // Update last_used_at
+    pool.query('UPDATE integration_tokens SET last_used_at = NOW() WHERE id = $1', [tokenRecord.id]).catch(() => {});
+
+    next();
+  } catch (err) {
+    return res.status(500).json({ error: 'Auth error: ' + err.message });
+  }
+}
+
+// ── PULL: Get queued Good return exports ─────────────────────────────
+// MindCloud calls this on their schedule.
+// ?after_id=N returns exports with id > N (cursor-based pagination)
+// ?limit=N defaults to 100, max 500
+// Only returns status=queued records. Acknowledged records are excluded.
+app.get('/api/integrations/wms/returns', authenticateIntegration, async (req, res) => {
+  const token = req.integrationToken;
+  if (!token.scopes.includes('wms:read')) {
+    return res.status(403).json({ error: 'Token lacks wms:read scope' });
+  }
+
+  const afterId = parseInt(req.query.after_id) || 0;
+  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+  const merchantId = token.merchant_id;
+
+  try {
+    const where = ['e.status = $1', 'e.id > $2'];
+    const params = ['queued', afterId];
+    let i = 3;
+
+    if (merchantId) {
+      where.push(`e.merchant_id = $${i}`);
+      params.push(merchantId);
+      i++;
+    }
+
+    params.push(limit);
+
+    const result = await pool.query(
+      `SELECT
+        e.id as export_id,
+        e.idempotency_key,
+        e.owner_project,
+        e.sku,
+        e.quantity
+       FROM wms_return_exports e
+       WHERE ${where.join(' AND ')}
+       ORDER BY e.id ASC
+       LIMIT $${i}`,
+      params
+    );
+
+    const exports = result.rows;
+    const nextAfterId = exports.length > 0 ? exports[exports.length - 1].export_id : afterId;
+
+    res.json({
+      success: true,
+      next_after_id: nextAfterId,
+      count: exports.length,
+      exports: exports
+    });
+  } catch (err) {
+    console.error('[WMS Pull Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ACKNOWLEDGE: Mark exports as delivered to Datex ──────────────────
+// MindCloud calls this after successfully syncing to Datex.
+// Body: { export_ids: [1049, 1050, 1051], external_reference: "datex_batch_123" }
+app.post('/api/integrations/wms/returns/acknowledge', authenticateIntegration, async (req, res) => {
+  const token = req.integrationToken;
+  if (!token.scopes.includes('wms:acknowledge')) {
+    return res.status(403).json({ error: 'Token lacks wms:acknowledge scope' });
+  }
+
+  const { export_ids, external_reference } = req.body;
+  if (!export_ids || !Array.isArray(export_ids) || export_ids.length === 0) {
+    return res.status(400).json({ error: 'export_ids array required' });
+  }
+
+  if (export_ids.length > 500) {
+    return res.status(400).json({ error: 'Max 500 export_ids per acknowledge request' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE wms_return_exports
+       SET status = 'acknowledged', acknowledged_at = NOW(), updated_at = NOW(),
+           external_reference = COALESCE($1, external_reference)
+       WHERE id = ANY($2) AND status = 'queued'
+       RETURNING id`,
+      [external_reference || null, export_ids]
+    );
+
+    res.json({
+      success: true,
+      acknowledged: result.rows.length,
+      requested: export_ids.length
+    });
+  } catch (err) {
+    console.error('[WMS Acknowledge Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ADMIN: Generate integration token ────────────────────────────────
+// Internal use only — generates a token for a partner
+app.post('/api/db/integration-tokens', async (req, res) => {
+  const { name, partner, merchant_id, scopes } = req.body;
+  if (!name || !partner) {
+    return res.status(400).json({ error: 'name and partner required' });
+  }
+  const token = 'rh_wms_' + crypto.randomBytes(32).toString('hex');
+  try {
+    const result = await pool.query(
+      `INSERT INTO integration_tokens (name, token, partner, merchant_id, scopes)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id, name, token, partner, scopes`,
+      [name, token, partner, merchant_id || null, scopes || 'wms:read,wms:acknowledge']
+    );
+    res.json({ success: true, ...result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ADMIN: List integration tokens (masked) ──────────────────────────
+app.get('/api/db/integration-tokens', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, partner, merchant_id, scopes, active,
+              LEFT(token, 10) || '...' as token_preview,
+              created_at, last_used_at
+       FROM integration_tokens ORDER BY id`
+    );
+    res.json({ success: true, tokens: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ADMIN: WMS export stats ──────────────────────────────────────────
+app.get('/api/db/wms-export-stats', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN status = 'queued' THEN 1 END) as queued,
+        COUNT(CASE WHEN status = 'acknowledged' THEN 1 END) as acknowledged,
+        COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed,
+        MAX(created_at) as latest_export,
+        MAX(acknowledged_at) as latest_ack
+      FROM wms_return_exports
+    `);
+    res.json({ success: true, stats: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
