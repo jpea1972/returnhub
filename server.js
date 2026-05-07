@@ -2106,15 +2106,26 @@ app.get('/api/integrations/wms/returns', authenticateIntegration, async (req, re
         e.idempotency_key,
         e.owner_project,
         e.sku,
-        e.quantity
+        e.quantity,
+        r.received_at
        FROM wms_return_exports e
+       JOIN returns r ON e.return_id = r.id
        WHERE ${where.join(' AND ')}
        ORDER BY e.id ASC
        LIMIT $${i}`,
       params
     );
 
-    const exports = result.rows;
+    // Map each export to a full Datex inventory import row
+    const exports = result.rows.map(row => ({
+      export_id:          row.export_id,
+      idempotency_key:    row.idempotency_key,
+      owner_project:      row.owner_project,
+      sku:                row.sku,
+      quantity:           row.quantity || 1,
+      source_created_at:  row.received_at ? new Date(row.received_at).toISOString().split('T')[0] : null,
+    }));
+
     const nextAfterId = exports.length > 0 ? exports[exports.length - 1].export_id : afterId;
 
     res.json({
