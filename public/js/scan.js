@@ -12,7 +12,7 @@ async function procScanLive(code){
   document.getElementById('rp').classList.remove('vis');
 
   if(code.length > 22 && /^[0-9]+$/.test(code)){
-    const m = code.match(/((?:9[0-9]{3}|82)[0-9]{17,19})/);
+    const m = code.match(/((?:9400|9405|9407|9410|9434|9200|9202|9270)\d{18})/);
     if(m){ console.log('[Scan] USPS strip:', code, '->', m[0]); code = m[0]; }
   }
 
